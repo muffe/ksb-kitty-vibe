@@ -1,10 +1,7 @@
 <script setup lang="ts">
 import {
-  daypartLabel,
-  formatDateTime,
   inferredCurrentDaypart,
   isSameCalendarDay,
-  roomDisplayName,
   sanitizeRoomPayload,
   sortRooms,
   type Daypart,
@@ -17,7 +14,6 @@ import {
   type RoomLogWithRoom,
   type RoomUpdate
 } from '~/utils/cat-shelter'
-import { readableInputUi } from '~/utils/ui-presets'
 
 const supabase = useSupabase()
 const adminUser = useAdminUser()
@@ -399,128 +395,17 @@ onMounted(() => {
 
 <template>
   <div class="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
-    <section
-      v-if="isAdmin"
-      class="flex flex-col gap-5 md:flex-row md:items-start"
-    >
-      <div class="min-w-0 md:flex-1">
-        <UCard class="hero-card surface-card">
-          <div class="space-y-5">
-            <div class="space-y-2">
-              <p class="section-kicker">
-                Pflegeübersicht
-              </p>
-              <h1 class="hero-title">
-                Räume in Reihenfolge abarbeiten
-              </h1>
-              <p class="hero-copy">
-                Warnhinweise zuerst prüfen. Danach Fütterung und Beobachtungen direkt im jeweiligen Raum eintragen.
-              </p>
-            </div>
-
-            <div class="hint-grid">
-              <div class="hint-card">
-                <p class="hint-title">
-                  Wichtig
-                </p>
-                <p class="hint-text">
-                  Die Reihenfolge ist vorgegeben und soll eingehalten werden.
-                </p>
-              </div>
-
-              <div class="hint-card">
-                <p class="hint-title">
-                  Dokumentation
-                </p>
-                <p class="hint-text">
-                  Kommentar nur nutzen, wenn etwas auffällig oder erklärungsbedürftig war.
-                </p>
-              </div>
-            </div>
-          </div>
-        </UCard>
-      </div>
-
-      <div class="md:w-[24rem] md:flex-none">
-        <UCard class="surface-card admin-card">
-          <div class="space-y-4">
-            <div>
-              <h2 class="section-title">
-                Admin-Zugang
-              </h2>
-            </div>
-
-            <div class="grid gap-3 sm:grid-cols-3">
-              <div class="rounded-[1.35rem] border border-[var(--surface-line)] bg-white/82 px-4 py-4">
-                <p class="section-kicker">
-                  Räume
-                </p>
-                <p class="mt-2 text-2xl font-semibold text-[var(--surface-ink)]">
-                  {{ rooms.length }}
-                </p>
-              </div>
-
-              <div class="rounded-[1.35rem] border border-[var(--surface-line)] bg-white/82 px-4 py-4">
-                <p class="section-kicker">
-                  Morgens
-                </p>
-                <p class="mt-2 text-2xl font-semibold text-[var(--surface-ink)]">
-                  {{ formatRoomCompletion(daypartCompletion.morningCount) }}
-                </p>
-                <p class="mt-1 text-sm text-[var(--surface-muted)]">
-                  {{ daypartCompletion.morningCount }} von {{ rooms.length }} protokolliert
-                </p>
-              </div>
-
-              <div class="rounded-[1.35rem] border border-[var(--surface-line)] bg-white/82 px-4 py-4">
-                <p class="section-kicker">
-                  Abends
-                </p>
-                <p class="mt-2 text-2xl font-semibold text-[var(--surface-ink)]">
-                  {{ formatRoomCompletion(daypartCompletion.eveningCount) }}
-                </p>
-                <p class="mt-1 text-sm text-[var(--surface-muted)]">
-                  {{ daypartCompletion.eveningCount }} von {{ rooms.length }} protokolliert
-                </p>
-              </div>
-            </div>
-
-            <div class="grid gap-3 sm:grid-cols-2">
-              <UButton
-                color="primary"
-                icon="i-lucide-plus"
-                label="Neuen Raum anlegen"
-                class="justify-center"
-                @click="openCreateRoomModal"
-              />
-              <UButton
-                color="neutral"
-                variant="outline"
-                icon="i-lucide-chart-column"
-                label="Analyse"
-                class="justify-center"
-                to="/admin/analyse"
-              />
-              <UButton
-                color="neutral"
-                variant="subtle"
-                icon="i-lucide-arrow-up-down"
-                label="Reihenfolge bearbeiten"
-                class="justify-center"
-                to="/admin/reihenfolge"
-              />
-              <UButton
-                color="neutral"
-                variant="outline"
-                icon="i-lucide-log-out"
-                label="Abmelden"
-                class="justify-center"
-                @click="signOutAdmin"
-              />
-            </div>
-          </div>
-        </UCard>
-      </div>
+    <section v-if="isAdmin">
+      <DashboardHeroCard
+        is-admin
+        :rooms-count="rooms.length"
+        :morning-completion="formatRoomCompletion(daypartCompletion.morningCount)"
+        :morning-count="daypartCompletion.morningCount"
+        :evening-completion="formatRoomCompletion(daypartCompletion.eveningCount)"
+        :evening-count="daypartCompletion.eveningCount"
+        @create-room="openCreateRoomModal"
+        @sign-out="signOutAdmin"
+      />
     </section>
 
     <section
@@ -538,41 +423,7 @@ onMounted(() => {
         />
       </div>
 
-      <UCard class="hero-card">
-        <div class="space-y-5">
-          <div class="space-y-2">
-            <p class="section-kicker">
-              Pflegeübersicht
-            </p>
-            <h1 class="hero-title">
-              Räume in Reihenfolge abarbeiten
-            </h1>
-            <p class="hero-copy">
-              Warnhinweise zuerst prüfen. Danach Fütterung und Beobachtungen direkt im jeweiligen Raum eintragen.
-            </p>
-          </div>
-
-          <div class="hint-grid">
-            <div class="hint-card">
-              <p class="hint-title">
-                Wichtig
-              </p>
-              <p class="hint-text">
-                Die Reihenfolge ist vorgegeben und soll eingehalten werden.
-              </p>
-            </div>
-
-            <div class="hint-card">
-              <p class="hint-title">
-                Dokumentation
-              </p>
-              <p class="hint-text">
-                Kommentar nur nutzen, wenn etwas auffällig oder erklärungsbedürftig war.
-              </p>
-            </div>
-          </div>
-        </div>
-      </UCard>
+      <DashboardHeroCard />
     </section>
 
     <div
@@ -602,220 +453,22 @@ onMounted(() => {
       id="schneller-einstieg"
       class="content-grid"
     >
-      <UCard class="surface-card">
-        <template #header>
-          <div class="space-y-4">
-            <div class="flex items-center justify-between gap-3">
-              <div>
-                <h2 class="section-title">
-                  Schneller Einstieg
-                </h2>
-                <p class="mt-1 text-sm text-[var(--surface-muted)]">
-                  Aktuell empfohlen: {{ daypartLabel(preferredDaypart) }}
-                </p>
-              </div>
-              <div class="flex flex-wrap items-center gap-2">
-                <UBadge
-                  color="primary"
-                  variant="subtle"
-                  :label="`${sortedRooms.length} Räume`"
-                />
-                <UButton
-                  color="neutral"
-                  variant="outline"
-                  size="sm"
-                  icon="i-lucide-panels-top-left"
-                  label="Raumdetails"
-                  to="/raeume"
-                />
-              </div>
-            </div>
+      <QuickAccessCard
+        :preferred-daypart="preferredDaypart"
+        :rooms="sortedRooms"
+        :completed-room-ids="completedRoomIds"
+        :latest-log-by-room="latestLogByRoom"
+        :next-open-room="nextOpenRoom"
+        :round-progress="roundProgress"
+        @open-room="openQuickProtocol"
+        @open-next="openNextOpenRoom"
+      />
 
-            <div class="quick-progress-panel">
-              <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <p class="section-kicker">
-                    Rundgang
-                  </p>
-                  <p class="mt-1 text-base font-semibold text-[var(--surface-ink)]">
-                    {{ roundProgress.completed }} von {{ roundProgress.total }} Räumen für {{ daypartLabel(preferredDaypart) }} erledigt
-                  </p>
-                </div>
-
-                <div class="flex flex-wrap items-center gap-3">
-                  <span class="text-sm font-semibold text-[var(--surface-ink)]">
-                    {{ roundProgress.percent }}%
-                  </span>
-                  <UButton
-                    v-if="nextOpenRoom"
-                    color="primary"
-                    size="sm"
-                    icon="i-lucide-arrow-right"
-                    :label="`Nächster offener Raum: ${roomDisplayName(nextOpenRoom)}`"
-                    @click="openNextOpenRoom"
-                  />
-                  <UBadge
-                    v-else
-                    color="success"
-                    variant="subtle"
-                    label="Alle Räume erledigt"
-                  />
-                </div>
-              </div>
-
-              <div class="quick-progress-bar">
-                <div
-                  class="quick-progress-bar__fill"
-                  :style="{ width: `${roundProgress.percent}%` }"
-                />
-              </div>
-            </div>
-          </div>
-        </template>
-
-        <div
-          v-if="!sortedRooms.length"
-          class="rounded-2xl border border-dashed border-[var(--surface-line)] px-4 py-5 text-sm text-[var(--surface-muted)]"
-        >
-          Es wurden noch keine Räume angelegt.
-        </div>
-
-        <div
-          v-else
-          class="quick-room-grid"
-        >
-          <button
-            v-for="room in sortedRooms"
-            :key="room.id"
-            type="button"
-            class="quick-room-card"
-            :class="completedRoomIds.has(room.id) ? 'quick-room-card--done' : 'quick-room-card--open'"
-            @click="openQuickProtocol(room)"
-          >
-            <div class="flex items-start justify-between gap-3">
-              <div>
-                <p class="quick-room-order">
-                  {{ room.sort_order }}.
-                </p>
-                <h3 class="quick-room-title">
-                  {{ roomDisplayName(room) }}
-                </h3>
-              </div>
-
-              <div class="flex flex-wrap justify-end gap-2">
-                <UBadge
-                  :color="completedRoomIds.has(room.id) ? 'success' : 'primary'"
-                  variant="subtle"
-                  :label="completedRoomIds.has(room.id) ? 'Erledigt' : 'Offen'"
-                />
-                <UBadge
-                  v-if="room.warning_info?.trim()"
-                  color="warning"
-                  variant="subtle"
-                  label="Hinweis"
-                />
-              </div>
-            </div>
-
-            <p class="quick-room-copy">
-              {{ completedRoomIds.has(room.id)
-                ? `${daypartLabel(preferredDaypart)} wurde heute bereits protokolliert.`
-                : room.warning_info?.trim() || room.description?.trim() || 'Protokoll direkt aus dieser Übersicht erfassen.' }}
-            </p>
-
-            <div class="mt-3 flex flex-wrap gap-3 text-sm text-[var(--surface-muted)]">
-              <span v-if="latestLogByRoom.get(room.id)">
-                Letzter Mitarbeiter: <span class="font-semibold text-[var(--surface-ink)]">{{ latestLogByRoom.get(room.id)?.employee_name }}</span>
-              </span>
-              <span v-else>
-                Noch kein Protokoll vorhanden
-              </span>
-            </div>
-
-            <div class="mt-4 flex items-center justify-between gap-3">
-              <span class="text-sm font-semibold text-[var(--surface-ink)]">
-                {{ completedRoomIds.has(room.id) ? 'Erneut öffnen' : 'Protokoll öffnen' }}
-              </span>
-              <UIcon
-                name="i-lucide-arrow-down-right"
-                class="text-lg text-[var(--surface-muted)]"
-              />
-            </div>
-          </button>
-        </div>
-      </UCard>
-
-      <UCard class="surface-card">
-        <template #header>
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <h2 class="section-title">
-                Letzte Notizen
-              </h2>
-            </div>
-            <UBadge
-              color="neutral"
-              variant="subtle"
-              :label="`${latestDashboardLogs.length} Einträge`"
-            />
-          </div>
-        </template>
-
-        <div
-          v-if="loading"
-          class="rounded-2xl border border-dashed border-[var(--surface-line)] px-4 py-5 text-sm text-[var(--surface-muted)]"
-        >
-          Daten werden geladen ...
-        </div>
-
-        <div
-          v-else-if="!latestDashboardLogs.length"
-          class="rounded-2xl border border-dashed border-[var(--surface-line)] px-4 py-5 text-sm text-[var(--surface-muted)]"
-        >
-          Noch keine Protokolle vorhanden.
-        </div>
-
-        <div
-          v-else
-          class="space-y-3"
-        >
-          <button
-            v-for="log in latestDashboardLogs"
-            :key="log.id"
-            type="button"
-            class="w-full rounded-[1.4rem] border border-[var(--surface-line)] bg-white/85 p-4 text-left transition hover:border-teal-300 hover:shadow-sm"
-            @click="openLogViewer(log)"
-          >
-            <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-              <div>
-                <p class="text-sm font-semibold text-[var(--surface-ink)]">
-                  {{ log.room ? roomDisplayName(log.room) : 'Unbekannter Raum' }}
-                </p>
-                <p class="mt-1 text-sm text-[var(--surface-muted)]">
-                  {{ daypartLabel(log.daypart) }} · {{ log.employee_name }} · {{ formatDateTime(log.created_at) }}
-                </p>
-              </div>
-
-              <div class="flex flex-wrap gap-2">
-                <UBadge
-                  :color="log.ate_all_food ? 'success' : 'warning'"
-                  variant="subtle"
-                  :label="log.ate_all_food ? 'Futter komplett' : 'Futter nicht komplett'"
-                />
-                <UBadge
-                  :color="log.no_stool_found ? 'warning' : 'success'"
-                  variant="subtle"
-                  :label="log.no_stool_found ? 'Kein Kot' : 'Kot erfasst'"
-                />
-              </div>
-            </div>
-
-            <p class="mt-3 text-sm leading-6 text-[var(--surface-muted)]">
-              {{ log.comment?.trim() || 'Kein Kommentar hinterlegt.' }}
-            </p>
-          </button>
-        </div>
-      </UCard>
+      <RecentNotesCard
+        :loading="loading"
+        :logs="latestDashboardLogs"
+        @open-log="openLogViewer"
+      />
     </section>
 
     <RoomEditorModal
@@ -845,70 +498,12 @@ onMounted(() => {
       @update-log="updateRoomLog($event.id, $event.roomId, $event.values)"
     />
 
-    <UModal
+    <AdminLoginModal
       v-model:open="loginModalOpen"
-      :dismissible="!loginPending"
-    >
-      <template #header>
-        <div class="flex w-full items-start justify-between gap-4">
-          <div>
-            <h2 class="section-title text-2xl">
-              Admin-Anmeldung
-            </h2>
-            <p class="mt-1 text-sm text-[var(--surface-muted)]">
-              Passwort eingeben, um den Admin-Modus zu öffnen.
-            </p>
-          </div>
-
-          <UButton
-            color="neutral"
-            variant="ghost"
-            icon="i-lucide-x"
-            aria-label="Modal schließen"
-            :disabled="loginPending"
-            @click="loginModalOpen = false"
-          />
-        </div>
-      </template>
-
-      <template #body>
-        <div class="space-y-4">
-          <div
-            v-if="loginError"
-            class="rounded-2xl border border-red-300/80 bg-red-50 px-4 py-3 text-sm text-red-700"
-          >
-            {{ loginError }}
-          </div>
-
-          <label class="field-block">
-            <span class="field-label">Passwort</span>
-            <UInput
-              v-model="loginState.password"
-              type="password"
-              placeholder="Passwort"
-              :ui="readableInputUi"
-            />
-          </label>
-        </div>
-      </template>
-
-      <template #footer>
-        <div class="flex w-full flex-col gap-3 sm:flex-row sm:justify-end">
-          <UButton
-            color="neutral"
-            variant="outline"
-            label="Abbrechen"
-            :disabled="loginPending"
-            @click="loginModalOpen = false"
-          />
-          <UButton
-            color="primary"
-            :loading="loginPending"
-            label="Anmelden"
-            @click="signInAdmin"
-          />
-        </div>
-      </template>
-    </UModal>
+      v-model:password="loginState.password"
+      :pending="loginPending"
+      :error="loginError"
+      @submit="signInAdmin"
+    />
   </div>
 </template>
