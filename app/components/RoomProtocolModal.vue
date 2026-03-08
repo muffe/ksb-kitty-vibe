@@ -96,42 +96,36 @@ watch(
     <template #header>
       <div
         v-if="room"
-        class="w-full space-y-2"
+        class="w-full"
       >
-        <div class="space-y-2">
-          <div
-            class="grid w-full gap-2 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center"
-          >
-            <div class="text-left">
-              <h2 class="section-title text-2xl">
-                {{ roomDisplayName(room) }}
-              </h2>
-            </div>
-
-            <div
-              v-if="room.warning_info"
-              class="flex justify-center md:col-start-2 md:justify-self-center"
-            >
-              <div class="inline-flex max-w-[18rem] items-center gap-2 rounded-full border border-amber-300/90 bg-amber-100 px-3 py-1 text-amber-950 shadow-sm">
-                <UIcon
-                  name="i-lucide-triangle-alert"
-                  class="text-sm text-amber-700"
-                />
-                <span class="text-xs font-semibold leading-5 sm:text-sm">
-                  {{ room.warning_info }}
-                </span>
-              </div>
-            </div>
-
-            <div
-              aria-hidden="true"
-              class="hidden md:block"
-            />
+        <div
+          class="grid w-full gap-y-2 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-x-4 md:items-center"
+        >
+          <div class="flex min-h-10 items-center text-left">
+            <h2 class="section-title text-2xl">
+              {{ roomDisplayName(room) }}
+            </h2>
           </div>
 
-          <p class="text-sm text-[var(--surface-muted)]">
-            {{ daypartLabel(initialDaypart) }} direkt erfassen.
-          </p>
+          <div
+            v-if="room.warning_info"
+            class="flex justify-center md:col-start-2 md:self-center md:justify-self-center"
+          >
+            <div class="inline-flex max-w-[18rem] items-center gap-2 rounded-full border border-amber-300/90 bg-amber-100 px-3 py-1 text-amber-950 shadow-sm">
+              <UIcon
+                name="i-lucide-triangle-alert"
+                class="text-sm text-amber-700"
+              />
+              <span class="text-xs font-semibold leading-5 sm:text-sm">
+                {{ room.warning_info }}
+              </span>
+            </div>
+          </div>
+
+          <div
+            aria-hidden="true"
+            class="hidden md:block"
+          />
         </div>
       </div>
     </template>
