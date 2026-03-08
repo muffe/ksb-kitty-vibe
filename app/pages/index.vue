@@ -370,114 +370,118 @@ onMounted(() => {
   <div class="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
     <section
       v-if="isAdmin"
-      class="admin-top-grid"
+      class="grid gap-5 md:grid-cols-5"
     >
-      <UCard class="hero-card surface-card">
-        <div class="space-y-5">
-          <div class="space-y-2">
-            <p class="section-kicker">
-              Pflegeübersicht
-            </p>
-            <h1 class="hero-title">
-              Räume in Reihenfolge abarbeiten
-            </h1>
-            <p class="hero-copy">
-              Warnhinweise zuerst prüfen. Danach Fütterung und Beobachtungen direkt im jeweiligen Raum eintragen.
-            </p>
-          </div>
-
-          <div class="hint-grid">
-            <div class="hint-card">
-              <p class="hint-title">
-                Wichtig
-              </p>
-              <p class="hint-text">
-                Die Reihenfolge ist vorgegeben und soll eingehalten werden.
-              </p>
-            </div>
-
-            <div class="hint-card">
-              <p class="hint-title">
-                Dokumentation
-              </p>
-              <p class="hint-text">
-                Kommentar nur nutzen, wenn etwas auffällig oder erklärungsbedürftig war.
-              </p>
-            </div>
-          </div>
-        </div>
-      </UCard>
-
-      <UCard class="surface-card admin-card">
-        <div class="space-y-4">
-          <div>
-            <h2 class="section-title">
-              Admin-Zugang
-            </h2>
-          </div>
-
-          <div class="grid gap-3 sm:grid-cols-3">
-            <div class="rounded-[1.35rem] border border-[var(--surface-line)] bg-white/82 px-4 py-4">
+      <div class="md:col-span-3">
+        <UCard class="hero-card surface-card">
+          <div class="space-y-5">
+            <div class="space-y-2">
               <p class="section-kicker">
-                Räume
+                Pflegeübersicht
               </p>
-              <p class="mt-2 text-2xl font-semibold text-[var(--surface-ink)]">
-                {{ rooms.length }}
-              </p>
-            </div>
-
-            <div class="rounded-[1.35rem] border border-[var(--surface-line)] bg-white/82 px-4 py-4">
-              <p class="section-kicker">
-                Morgens
-              </p>
-              <p class="mt-2 text-2xl font-semibold text-[var(--surface-ink)]">
-                {{ formatRoomCompletion(daypartCompletion.morningCount) }}
-              </p>
-              <p class="mt-1 text-sm text-[var(--surface-muted)]">
-                {{ daypartCompletion.morningCount }} von {{ rooms.length }} protokolliert
+              <h1 class="hero-title">
+                Räume in Reihenfolge abarbeiten
+              </h1>
+              <p class="hero-copy">
+                Warnhinweise zuerst prüfen. Danach Fütterung und Beobachtungen direkt im jeweiligen Raum eintragen.
               </p>
             </div>
 
-            <div class="rounded-[1.35rem] border border-[var(--surface-line)] bg-white/82 px-4 py-4">
-              <p class="section-kicker">
-                Abends
-              </p>
-              <p class="mt-2 text-2xl font-semibold text-[var(--surface-ink)]">
-                {{ formatRoomCompletion(daypartCompletion.eveningCount) }}
-              </p>
-              <p class="mt-1 text-sm text-[var(--surface-muted)]">
-                {{ daypartCompletion.eveningCount }} von {{ rooms.length }} protokolliert
-              </p>
+            <div class="hint-grid">
+              <div class="hint-card">
+                <p class="hint-title">
+                  Wichtig
+                </p>
+                <p class="hint-text">
+                  Die Reihenfolge ist vorgegeben und soll eingehalten werden.
+                </p>
+              </div>
+
+              <div class="hint-card">
+                <p class="hint-title">
+                  Dokumentation
+                </p>
+                <p class="hint-text">
+                  Kommentar nur nutzen, wenn etwas auffällig oder erklärungsbedürftig war.
+                </p>
+              </div>
             </div>
           </div>
+        </UCard>
+      </div>
 
-          <div class="grid gap-3 sm:grid-cols-2">
-            <UButton
-              color="primary"
-              icon="i-lucide-plus"
-              label="Neuen Raum anlegen"
-              class="justify-center"
-              @click="openCreateRoomModal"
-            />
-            <UButton
-              color="neutral"
-              variant="subtle"
-              icon="i-lucide-arrow-up-down"
-              label="Reihenfolge bearbeiten"
-              class="justify-center"
-              to="/admin/reihenfolge"
-            />
-            <UButton
-              color="neutral"
-              variant="outline"
-              icon="i-lucide-log-out"
-              label="Abmelden"
-              class="sm:col-span-2 justify-center"
-              @click="signOutAdmin"
-            />
+      <div class="md:col-span-2">
+        <UCard class="surface-card admin-card">
+          <div class="space-y-4">
+            <div>
+              <h2 class="section-title">
+                Admin-Zugang
+              </h2>
+            </div>
+
+            <div class="grid gap-3 sm:grid-cols-3">
+              <div class="rounded-[1.35rem] border border-[var(--surface-line)] bg-white/82 px-4 py-4">
+                <p class="section-kicker">
+                  Räume
+                </p>
+                <p class="mt-2 text-2xl font-semibold text-[var(--surface-ink)]">
+                  {{ rooms.length }}
+                </p>
+              </div>
+
+              <div class="rounded-[1.35rem] border border-[var(--surface-line)] bg-white/82 px-4 py-4">
+                <p class="section-kicker">
+                  Morgens
+                </p>
+                <p class="mt-2 text-2xl font-semibold text-[var(--surface-ink)]">
+                  {{ formatRoomCompletion(daypartCompletion.morningCount) }}
+                </p>
+                <p class="mt-1 text-sm text-[var(--surface-muted)]">
+                  {{ daypartCompletion.morningCount }} von {{ rooms.length }} protokolliert
+                </p>
+              </div>
+
+              <div class="rounded-[1.35rem] border border-[var(--surface-line)] bg-white/82 px-4 py-4">
+                <p class="section-kicker">
+                  Abends
+                </p>
+                <p class="mt-2 text-2xl font-semibold text-[var(--surface-ink)]">
+                  {{ formatRoomCompletion(daypartCompletion.eveningCount) }}
+                </p>
+                <p class="mt-1 text-sm text-[var(--surface-muted)]">
+                  {{ daypartCompletion.eveningCount }} von {{ rooms.length }} protokolliert
+                </p>
+              </div>
+            </div>
+
+            <div class="grid gap-3 sm:grid-cols-2">
+              <UButton
+                color="primary"
+                icon="i-lucide-plus"
+                label="Neuen Raum anlegen"
+                class="justify-center"
+                @click="openCreateRoomModal"
+              />
+              <UButton
+                color="neutral"
+                variant="subtle"
+                icon="i-lucide-arrow-up-down"
+                label="Reihenfolge bearbeiten"
+                class="justify-center"
+                to="/admin/reihenfolge"
+              />
+              <UButton
+                color="neutral"
+                variant="outline"
+                icon="i-lucide-log-out"
+                label="Abmelden"
+                class="sm:col-span-2 justify-center"
+                @click="signOutAdmin"
+              />
+            </div>
           </div>
-        </div>
-      </UCard>
+        </UCard>
+      </div>
     </section>
 
     <section
