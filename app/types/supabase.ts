@@ -62,6 +62,7 @@ export interface Database {
           stool_mushy: number
           stool_soft: number
           stool_watery: number
+          updated_at: string
         }
         Insert: {
           ate_all_food?: boolean
@@ -79,6 +80,7 @@ export interface Database {
           stool_mushy?: number
           stool_soft?: number
           stool_watery?: number
+          updated_at?: string
         }
         Update: {
           ate_all_food?: boolean
@@ -96,6 +98,7 @@ export interface Database {
           stool_mushy?: number
           stool_soft?: number
           stool_watery?: number
+          updated_at?: string
         }
         Relationships: [
           {

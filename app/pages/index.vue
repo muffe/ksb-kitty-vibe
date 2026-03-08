@@ -81,6 +81,31 @@ const existingLogsByRoom = computed(() => {
   return entries
 })
 
+const latestLogByRoom = computed(() => {
+  const entries = new Map<string, RoomLogWithRoom>()
+
+  for (const log of recentLogs.value) {
+    if (!entries.has(log.room_id)) {
+      entries.set(log.room_id, log)
+    }
+  }
+
+  return entries
+})
+
+const nextOpenRoom = computed(() => sortedRooms.value.find(room => !completedRoomIds.value.has(room.id)) ?? null)
+
+const roundProgress = computed(() => {
+  const total = sortedRooms.value.length
+  const completed = completedRoomIds.value.size
+
+  return {
+    total,
+    completed,
+    percent: total ? Math.round((completed / total) * 100) : 0
+  }
+})
+
 const daypartCompletion = computed(() => {
   const today = new Date()
   const morningRooms = new Set<string>()
@@ -240,6 +265,12 @@ function openQuickProtocol(room: Room) {
   quickProtocolOpen.value = true
 }
 
+function openNextOpenRoom() {
+  if (nextOpenRoom.value) {
+    openQuickProtocol(nextOpenRoom.value)
+  }
+}
+
 function openLogViewer(log: RoomLogWithRoom) {
   selectedLog.value = log
   logViewerOpen.value = true
@@ -370,9 +401,9 @@ onMounted(() => {
   <div class="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
     <section
       v-if="isAdmin"
-      class="admin-header-grid"
+      class="flex flex-col gap-5 md:flex-row md:items-start"
     >
-      <div class="admin-header-grid__main">
+      <div class="min-w-0 md:flex-1">
         <UCard class="hero-card surface-card">
           <div class="space-y-5">
             <div class="space-y-2">
@@ -410,7 +441,7 @@ onMounted(() => {
         </UCard>
       </div>
 
-      <div class="admin-header-grid__side">
+      <div class="md:w-[24rem] md:flex-none">
         <UCard class="surface-card admin-card">
           <div class="space-y-4">
             <div>
@@ -464,6 +495,14 @@ onMounted(() => {
               />
               <UButton
                 color="neutral"
+                variant="outline"
+                icon="i-lucide-chart-column"
+                label="Analyse"
+                class="justify-center"
+                to="/admin/analyse"
+              />
+              <UButton
+                color="neutral"
                 variant="subtle"
                 icon="i-lucide-arrow-up-down"
                 label="Reihenfolge bearbeiten"
@@ -475,7 +514,7 @@ onMounted(() => {
                 variant="outline"
                 icon="i-lucide-log-out"
                 label="Abmelden"
-                class="sm:col-span-2 justify-center"
+                class="justify-center"
                 @click="signOutAdmin"
               />
             </div>
@@ -565,29 +604,71 @@ onMounted(() => {
     >
       <UCard class="surface-card">
         <template #header>
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <h2 class="section-title">
-                Schneller Einstieg
-              </h2>
-              <p class="mt-1 text-sm text-[var(--surface-muted)]">
-                Aktuell empfohlen: {{ daypartLabel(preferredDaypart) }}
-              </p>
+          <div class="space-y-4">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <h2 class="section-title">
+                  Schneller Einstieg
+                </h2>
+                <p class="mt-1 text-sm text-[var(--surface-muted)]">
+                  Aktuell empfohlen: {{ daypartLabel(preferredDaypart) }}
+                </p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <UBadge
+                  color="primary"
+                  variant="subtle"
+                  :label="`${sortedRooms.length} Räume`"
+                />
+                <UButton
+                  color="neutral"
+                  variant="outline"
+                  size="sm"
+                  icon="i-lucide-panels-top-left"
+                  label="Raumdetails"
+                  to="/raeume"
+                />
+              </div>
             </div>
-            <div class="flex flex-wrap items-center gap-2">
-              <UBadge
-                color="primary"
-                variant="subtle"
-                :label="`${sortedRooms.length} Räume`"
-              />
-              <UButton
-                color="neutral"
-                variant="outline"
-                size="sm"
-                icon="i-lucide-panels-top-left"
-                label="Raumdetails"
-                to="/raeume"
-              />
+
+            <div class="quick-progress-panel">
+              <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p class="section-kicker">
+                    Rundgang
+                  </p>
+                  <p class="mt-1 text-base font-semibold text-[var(--surface-ink)]">
+                    {{ roundProgress.completed }} von {{ roundProgress.total }} Räumen für {{ daypartLabel(preferredDaypart) }} erledigt
+                  </p>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-3">
+                  <span class="text-sm font-semibold text-[var(--surface-ink)]">
+                    {{ roundProgress.percent }}%
+                  </span>
+                  <UButton
+                    v-if="nextOpenRoom"
+                    color="primary"
+                    size="sm"
+                    icon="i-lucide-arrow-right"
+                    :label="`Nächster offener Raum: ${roomDisplayName(nextOpenRoom)}`"
+                    @click="openNextOpenRoom"
+                  />
+                  <UBadge
+                    v-else
+                    color="success"
+                    variant="subtle"
+                    label="Alle Räume erledigt"
+                  />
+                </div>
+              </div>
+
+              <div class="quick-progress-bar">
+                <div
+                  class="quick-progress-bar__fill"
+                  :style="{ width: `${roundProgress.percent}%` }"
+                />
+              </div>
             </div>
           </div>
         </template>
@@ -641,6 +722,15 @@ onMounted(() => {
                 ? `${daypartLabel(preferredDaypart)} wurde heute bereits protokolliert.`
                 : room.warning_info?.trim() || room.description?.trim() || 'Protokoll direkt aus dieser Übersicht erfassen.' }}
             </p>
+
+            <div class="mt-3 flex flex-wrap gap-3 text-sm text-[var(--surface-muted)]">
+              <span v-if="latestLogByRoom.get(room.id)">
+                Letzter Mitarbeiter: <span class="font-semibold text-[var(--surface-ink)]">{{ latestLogByRoom.get(room.id)?.employee_name }}</span>
+              </span>
+              <span v-else>
+                Noch kein Protokoll vorhanden
+              </span>
+            </div>
 
             <div class="mt-4 flex items-center justify-between gap-3">
               <span class="text-sm font-semibold text-[var(--surface-ink)]">
