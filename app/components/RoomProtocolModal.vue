@@ -1,6 +1,20 @@
 <script setup lang="ts">
-import type { Daypart, Room, RoomLogInsert } from '~/utils/cat-shelter'
-import { daypartLabel, roomDisplayName } from '~/utils/cat-shelter'
+import type {
+  Daypart,
+  Room,
+  RoomLogFormState,
+  RoomLogInsert,
+  RoomLogUpdate,
+  RoomLogWithRoom
+} from '~/utils/cat-shelter'
+import {
+  daypartLabel,
+  formatDateTime,
+  roomDisplayName,
+  roomLogToFormState,
+  sanitizeRoomLogPayload,
+  sanitizeRoomLogState
+} from '~/utils/cat-shelter'
 
 const props = withDefaults(defineProps<{
   open: boolean
@@ -8,13 +22,16 @@ const props = withDefaults(defineProps<{
   submitting: boolean
   initialDaypart: Daypart
   completed: boolean
+  existingLog?: RoomLogWithRoom | null
 }>(), {
-  room: null
+  room: null,
+  existingLog: null
 })
 
 const emit = defineEmits<{
   'update:open': [value: boolean]
-  'submit-log': [payload: RoomLogInsert]
+  'create-log': [payload: RoomLogInsert]
+  'update-log': [payload: { id: string, values: RoomLogUpdate }]
 }>()
 
 const modalOpen = computed({
@@ -23,6 +40,7 @@ const modalOpen = computed({
 })
 
 const resetToken = ref(0)
+const mode = ref<'choice' | 'edit' | 'new'>('new')
 
 const hasSecondaryInfo = computed(() => {
   if (!props.room) {
@@ -34,6 +52,14 @@ const hasSecondaryInfo = computed(() => {
     || feedingPlans.value.alternate.entries.some(entry => entry.value !== 'Keine Angabe')
   )
 })
+
+const formInitialState = computed<Partial<RoomLogFormState> | null>(() => (
+  mode.value === 'edit' && props.existingLog
+    ? roomLogToFormState(props.existingLog)
+    : null
+))
+
+const formSubmitLabel = computed(() => mode.value === 'edit' ? 'Änderungen speichern' : 'Protokoll speichern')
 
 const feedingPlans = computed(() => {
   if (!props.room) {
@@ -73,13 +99,35 @@ const feedingPlans = computed(() => {
 })
 
 watch(
-  () => [props.open, props.room?.id, props.initialDaypart] as const,
+  () => [props.open, props.room?.id, props.initialDaypart, props.existingLog?.id] as const,
   ([open]) => {
     if (open) {
+      mode.value = props.existingLog ? 'choice' : 'new'
       resetToken.value += 1
     }
   }
 )
+
+function setMode(nextMode: 'choice' | 'edit' | 'new') {
+  mode.value = nextMode
+  resetToken.value += 1
+}
+
+function submitLog(state: RoomLogFormState) {
+  if (!props.room) {
+    return
+  }
+
+  if (mode.value === 'edit' && props.existingLog) {
+    emit('update-log', {
+      id: props.existingLog.id,
+      values: sanitizeRoomLogState(state)
+    })
+    return
+  }
+
+  emit('create-log', sanitizeRoomLogPayload(props.room.id, state))
+}
 </script>
 
 <template>
@@ -96,37 +144,48 @@ watch(
     <template #header>
       <div
         v-if="room"
-        class="w-full"
+        class="flex w-full items-start justify-between gap-4"
       >
-        <div
-          class="grid w-full gap-y-2 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-x-4 md:items-center"
-        >
-          <div class="flex min-h-10 items-center text-left">
-            <h2 class="section-title text-2xl">
-              {{ roomDisplayName(room) }}
-            </h2>
-          </div>
-
+        <div class="min-w-0 flex-1">
           <div
-            v-if="room.warning_info"
-            class="flex justify-center md:col-start-2 md:self-center md:justify-self-center"
+            class="grid w-full gap-y-2 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-x-4 md:items-center"
           >
-            <div class="inline-flex max-w-[18rem] items-center gap-2 rounded-full border border-amber-300/90 bg-amber-100 px-3 py-1 text-amber-950 shadow-sm">
-              <UIcon
-                name="i-lucide-triangle-alert"
-                class="text-sm text-amber-700"
-              />
-              <span class="text-xs font-semibold leading-5 sm:text-sm">
-                {{ room.warning_info }}
-              </span>
+            <div class="flex min-h-10 items-center text-left">
+              <h2 class="section-title text-2xl">
+                {{ roomDisplayName(room) }}
+              </h2>
             </div>
-          </div>
 
-          <div
-            aria-hidden="true"
-            class="hidden md:block"
-          />
+            <div
+              v-if="room.warning_info"
+              class="flex justify-center md:col-start-2 md:self-center md:justify-self-center"
+            >
+              <div class="inline-flex max-w-[18rem] items-center gap-2 rounded-full border border-amber-300/90 bg-amber-100 px-3 py-1 text-amber-950 shadow-sm">
+                <UIcon
+                  name="i-lucide-triangle-alert"
+                  class="text-sm text-amber-700"
+                />
+                <span class="text-xs font-semibold leading-5 sm:text-sm">
+                  {{ room.warning_info }}
+                </span>
+              </div>
+            </div>
+
+            <div
+              aria-hidden="true"
+              class="hidden md:block"
+            />
+          </div>
         </div>
+
+        <UButton
+          color="neutral"
+          variant="ghost"
+          icon="i-lucide-x"
+          aria-label="Modal schließen"
+          :disabled="submitting"
+          @click="modalOpen = false"
+        />
       </div>
     </template>
 
@@ -227,18 +286,80 @@ watch(
               <h3 class="section-title mt-1 text-xl">
                 Protokoll erfassen
               </h3>
-              <p class="mt-2 text-sm leading-6 text-[var(--surface-muted)]">
-                Angaben für {{ daypartLabel(initialDaypart) }} direkt für diesen Raum eintragen.
+              <p
+                v-if="mode === 'edit' && existingLog"
+                class="mt-2 text-sm leading-6 text-[var(--surface-muted)]"
+              >
+                Vorhandenes Protokoll von {{ existingLog.employee_name }} vom {{ formatDateTime(existingLog.created_at) }} bearbeiten.
+              </p>
+              <p
+                v-else-if="mode === 'new' && existingLog"
+                class="mt-2 text-sm leading-6 text-[var(--surface-muted)]"
+              >
+                Es gibt bereits ein Protokoll für {{ daypartLabel(initialDaypart) }}. Sie legen trotzdem einen neuen Eintrag an.
               </p>
             </div>
 
-            <RoomLogForm
-              :room-id="room.id"
-              :submitting="submitting"
-              :reset-token="resetToken"
-              :initial-daypart="initialDaypart"
-              @submit-log="emit('submit-log', $event)"
-            />
+            <div
+              v-if="mode === 'choice' && existingLog"
+              class="space-y-4"
+            >
+              <div class="rounded-[1.35rem] border border-amber-200 bg-amber-50 px-4 py-4 text-sm leading-6 text-amber-900">
+                Für heute und {{ daypartLabel(initialDaypart) }} gibt es bereits ein Protokoll von
+                <span class="font-semibold">{{ existingLog.employee_name }}</span>
+                vom {{ formatDateTime(existingLog.created_at) }}.
+              </div>
+
+              <div class="grid gap-3">
+                <button
+                  type="button"
+                  class="rounded-[1.35rem] border border-[var(--surface-line)] bg-white px-4 py-4 text-left transition hover:border-emerald-300 hover:shadow-sm"
+                  @click="setMode('edit')"
+                >
+                  <span class="block text-base font-semibold text-[var(--surface-ink)]">Altes Protokoll bearbeiten</span>
+                  <span class="mt-1 block text-sm leading-6 text-[var(--surface-muted)]">
+                    Den vorhandenen Eintrag öffnen und die Angaben anpassen.
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  class="rounded-[1.35rem] border border-[var(--surface-line)] bg-white px-4 py-4 text-left transition hover:border-teal-300 hover:shadow-sm"
+                  @click="setMode('new')"
+                >
+                  <span class="block text-base font-semibold text-[var(--surface-ink)]">Trotzdem neues Protokoll erstellen</span>
+                  <span class="mt-1 block text-sm leading-6 text-[var(--surface-muted)]">
+                    Einen zusätzlichen Eintrag für denselben Tag und dieselbe Tageszeit erfassen.
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <template v-else>
+              <div
+                v-if="existingLog"
+                class="mb-4 flex justify-end"
+              >
+                <UButton
+                  color="neutral"
+                  variant="outline"
+                  size="sm"
+                  label="Auswahl anzeigen"
+                  @click="setMode('choice')"
+                />
+              </div>
+
+              <RoomLogForm
+                :submitting="submitting"
+                :reset-token="resetToken"
+                :initial-daypart="initialDaypart"
+                :initial-state="formInitialState"
+                :show-cancel="true"
+                :submit-label="formSubmitLabel"
+                @cancel="modalOpen = false"
+                @submit-log="submitLog"
+              />
+            </template>
           </div>
         </div>
       </div>

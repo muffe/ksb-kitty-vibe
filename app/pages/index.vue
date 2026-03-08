@@ -13,6 +13,7 @@ import {
   type Room,
   type RoomInsert,
   type RoomLogInsert,
+  type RoomLogUpdate,
   type RoomLogWithRoom,
   type RoomUpdate
 } from '~/utils/cat-shelter'
@@ -36,6 +37,8 @@ const notice = ref<{ tone: 'success' | 'error' | 'info', title: string, descript
 const loginError = ref('')
 const quickProtocolOpen = ref(false)
 const quickProtocolRoom = ref<Room | null>(null)
+const logViewerOpen = ref(false)
+const selectedLog = ref<RoomLogWithRoom | null>(null)
 const preferredDaypart = ref<Daypart>('morning')
 
 const loginState = reactive({
@@ -72,6 +75,25 @@ const completedRoomIds = computed(() => {
 })
 
 const completedCount = computed(() => completedRoomIds.value.size)
+
+const existingLogsByRoom = computed(() => {
+  const today = new Date()
+  const entries = new Map<string, RoomLogWithRoom>()
+
+  for (const log of recentLogs.value) {
+    if (entries.has(log.room_id)) {
+      continue
+    }
+
+    if (log.daypart !== preferredDaypart.value || !isSameCalendarDay(log.created_at, today)) {
+      continue
+    }
+
+    entries.set(log.room_id, log)
+  }
+
+  return entries
+})
 
 async function refreshAll() {
   loading.value = true
@@ -198,6 +220,11 @@ function openQuickProtocol(room: Room) {
   quickProtocolOpen.value = true
 }
 
+function openLogViewer(log: RoomLogWithRoom) {
+  selectedLog.value = log
+  logViewerOpen.value = true
+}
+
 async function submitRoomLog(payload: RoomLogInsert) {
   submittingRoomId.value = payload.room_id
 
@@ -217,6 +244,31 @@ async function submitRoomLog(payload: RoomLogInsert) {
   quickProtocolRoom.value = null
 
   setNotice('success', 'Protokoll gespeichert.', 'Der Eintrag ist jetzt im Raumverlauf sichtbar.')
+  return true
+}
+
+async function updateRoomLog(id: string, roomId: string, values: RoomLogUpdate) {
+  submittingRoomId.value = roomId
+
+  const { error } = await supabase
+    .from('room_logs')
+    .update(values)
+    .eq('id', id)
+
+  if (error) {
+    submittingRoomId.value = null
+    setNotice('error', 'Das Protokoll konnte nicht aktualisiert werden.', error.message)
+    return false
+  }
+
+  await refreshAll()
+  submittingRoomId.value = null
+  quickProtocolOpen.value = false
+  quickProtocolRoom.value = null
+  logViewerOpen.value = false
+  selectedLog.value = null
+
+  setNotice('success', 'Protokoll aktualisiert.', 'Der vorhandene Eintrag wurde gespeichert.')
   return true
 }
 
@@ -284,11 +336,88 @@ onMounted(() => {
 
 <template>
   <div class="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
-    <section :class="isAdmin ? 'top-grid' : 'space-y-3'">
-      <div
-        v-if="!isAdmin"
-        class="flex justify-end"
-      >
+    <section
+      v-if="isAdmin"
+      class="grid items-start gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(22rem,0.8fr)]"
+    >
+      <UCard class="hero-card surface-card">
+        <div class="space-y-5">
+          <div class="space-y-2">
+            <p class="section-kicker">
+              Pflegeübersicht
+            </p>
+            <h1 class="hero-title">
+              Räume in Reihenfolge abarbeiten
+            </h1>
+            <p class="hero-copy">
+              Warnhinweise zuerst prüfen. Danach Fütterung und Beobachtungen direkt im jeweiligen Raum eintragen.
+            </p>
+          </div>
+
+          <div class="hint-grid">
+            <div class="hint-card">
+              <p class="hint-title">
+                Wichtig
+              </p>
+              <p class="hint-text">
+                Die Reihenfolge ist vorgegeben und soll eingehalten werden.
+              </p>
+            </div>
+
+            <div class="hint-card">
+              <p class="hint-title">
+                Dokumentation
+              </p>
+              <p class="hint-text">
+                Kommentar nur nutzen, wenn etwas auffällig oder erklärungsbedürftig war.
+              </p>
+            </div>
+          </div>
+        </div>
+      </UCard>
+
+      <UCard class="surface-card admin-card">
+        <div class="space-y-4">
+          <div>
+            <h2 class="section-title">
+              Admin-Zugang
+            </h2>
+          </div>
+
+          <div class="grid gap-3 sm:grid-cols-2">
+            <UButton
+              color="primary"
+              icon="i-lucide-plus"
+              label="Neuen Raum anlegen"
+              class="justify-center"
+              @click="openCreateRoomModal"
+            />
+            <UButton
+              color="neutral"
+              variant="subtle"
+              icon="i-lucide-arrow-up-down"
+              label="Reihenfolge bearbeiten"
+              class="justify-center"
+              to="/admin/reihenfolge"
+            />
+            <UButton
+              color="neutral"
+              variant="outline"
+              icon="i-lucide-log-out"
+              label="Abmelden"
+              class="sm:col-span-2 justify-center"
+              @click="signOutAdmin"
+            />
+          </div>
+        </div>
+      </UCard>
+    </section>
+
+    <section
+      v-else
+      class="space-y-3"
+    >
+      <div class="flex justify-end">
         <UButton
           color="neutral"
           variant="link"
@@ -331,58 +460,6 @@ onMounted(() => {
                 Kommentar nur nutzen, wenn etwas auffällig oder erklärungsbedürftig war.
               </p>
             </div>
-          </div>
-        </div>
-      </UCard>
-
-      <UCard
-        v-if="isAdmin"
-        class="surface-card admin-card"
-      >
-        <div class="space-y-4">
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <h2 class="section-title">
-                Admin-Zugang
-              </h2>
-            </div>
-            <UBadge
-              :color="isAdmin ? 'success' : 'neutral'"
-              variant="subtle"
-              :label="isAdmin ? 'angemeldet' : authReady ? 'nicht angemeldet' : 'wird geprüft'"
-            />
-          </div>
-
-          <div class="rounded-[1.5rem] border border-emerald-200 bg-emerald-50 px-4 py-4">
-            <p class="text-sm font-semibold text-emerald-800">
-              {{ adminUser?.email }}
-            </p>
-            <p class="mt-1 text-sm text-emerald-700">
-              Sie können Räume anlegen, bearbeiten und die Reihenfolge anpassen.
-            </p>
-          </div>
-
-          <div class="flex flex-wrap gap-3">
-            <UButton
-              color="primary"
-              icon="i-lucide-plus"
-              label="Neuen Raum anlegen"
-              @click="openCreateRoomModal"
-            />
-            <UButton
-              color="neutral"
-              variant="subtle"
-              icon="i-lucide-arrow-up-down"
-              label="Reihenfolge bearbeiten"
-              to="/admin/reihenfolge"
-            />
-            <UButton
-              color="neutral"
-              variant="outline"
-              icon="i-lucide-log-out"
-              label="Abmelden"
-              @click="signOutAdmin"
-            />
           </div>
         </div>
       </UCard>
@@ -583,10 +660,12 @@ onMounted(() => {
           v-else
           class="space-y-3"
         >
-          <div
+          <button
             v-for="log in latestDashboardLogs"
             :key="log.id"
-            class="rounded-[1.4rem] border border-[var(--surface-line)] bg-white/85 p-4"
+            type="button"
+            class="w-full rounded-[1.4rem] border border-[var(--surface-line)] bg-white/85 p-4 text-left transition hover:border-teal-300 hover:shadow-sm"
+            @click="openLogViewer(log)"
           >
             <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div>
@@ -615,7 +694,7 @@ onMounted(() => {
             <p class="mt-3 text-sm leading-6 text-[var(--surface-muted)]">
               {{ log.comment?.trim() || 'Kein Kommentar hinterlegt.' }}
             </p>
-          </div>
+          </button>
         </div>
       </UCard>
     </section>
@@ -635,15 +714,44 @@ onMounted(() => {
       :submitting="submittingRoomId === quickProtocolRoom?.id"
       :initial-daypart="preferredDaypart"
       :completed="quickProtocolRoom ? completedRoomIds.has(quickProtocolRoom.id) : false"
-      @submit-log="submitRoomLog"
+      :existing-log="quickProtocolRoom ? existingLogsByRoom.get(quickProtocolRoom.id) ?? null : null"
+      @create-log="submitRoomLog"
+      @update-log="updateRoomLog($event.id, quickProtocolRoom?.id ?? '', $event.values)"
+    />
+
+    <RoomLogViewerModal
+      v-model:open="logViewerOpen"
+      :log="selectedLog"
+      :submitting="submittingRoomId === selectedLog?.room_id"
+      @update-log="updateRoomLog($event.id, $event.roomId, $event.values)"
     />
 
     <UModal
       v-model:open="loginModalOpen"
-      title="Admin-Anmeldung"
-      description="Nur für verwaltende Konten mit Supabase-E-Mail/Passwort."
       :dismissible="!loginPending"
     >
+      <template #header>
+        <div class="flex w-full items-start justify-between gap-4">
+          <div>
+            <h2 class="section-title text-2xl">
+              Admin-Anmeldung
+            </h2>
+            <p class="mt-1 text-sm text-[var(--surface-muted)]">
+              Nur für verwaltende Konten mit Supabase-E-Mail/Passwort.
+            </p>
+          </div>
+
+          <UButton
+            color="neutral"
+            variant="ghost"
+            icon="i-lucide-x"
+            aria-label="Modal schließen"
+            :disabled="loginPending"
+            @click="loginModalOpen = false"
+          />
+        </div>
+      </template>
+
       <template #body>
         <div class="space-y-4">
           <div

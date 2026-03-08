@@ -3,7 +3,6 @@ import type { Daypart, RoomLogFormState } from '~/utils/cat-shelter'
 import {
   createRoomLogFormState,
   daypartOptions,
-  sanitizeRoomLogPayload,
   stoolFields
 } from '~/utils/cat-shelter'
 import {
@@ -14,27 +13,38 @@ import {
 } from '~/utils/ui-presets'
 
 const props = withDefaults(defineProps<{
-  roomId: string
   submitting: boolean
   resetToken: number
   initialDaypart?: Daypart
+  initialState?: Partial<RoomLogFormState> | null
+  showCancel?: boolean
   submitLabel?: string
 }>(), {
   initialDaypart: 'morning',
+  initialState: null,
+  showCancel: false,
   submitLabel: 'Protokoll speichern'
 })
 
 const emit = defineEmits<{
-  'submit-log': [payload: ReturnType<typeof sanitizeRoomLogPayload>]
+  'cancel': []
+  'submit-log': [state: RoomLogFormState]
 }>()
 
 const state = reactive(createRoomLogFormState(props.initialDaypart))
 const localError = ref('')
 
+function createInitialState() {
+  return {
+    ...createRoomLogFormState(props.initialDaypart),
+    ...(props.initialState ?? {})
+  } satisfies RoomLogFormState
+}
+
 watch(
-  () => [props.resetToken, props.initialDaypart],
+  () => [props.resetToken, props.initialDaypart, props.initialState],
   () => {
-    Object.assign(state, createRoomLogFormState(props.initialDaypart))
+    Object.assign(state, createInitialState())
     localError.value = ''
   },
   { immediate: true }
@@ -47,7 +57,7 @@ function submit() {
   }
 
   localError.value = ''
-  emit('submit-log', sanitizeRoomLogPayload(props.roomId, { ...state } as RoomLogFormState))
+  emit('submit-log', { ...state } as RoomLogFormState)
 }
 </script>
 
@@ -129,11 +139,12 @@ function submit() {
 
     <div class="mt-5 flex flex-wrap justify-end gap-3">
       <UButton
+        v-if="showCancel"
         color="neutral"
         variant="outline"
-        label="Formular leeren"
+        label="Abbrechen"
         :disabled="submitting"
-        @click="Object.assign(state, createRoomLogFormState(props.initialDaypart))"
+        @click="emit('cancel')"
       />
       <UButton
         color="primary"

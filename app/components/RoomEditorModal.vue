@@ -72,8 +72,6 @@ function submit() {
 <template>
   <UModal
     v-model:open="modalOpen"
-    :title="room ? 'Raum bearbeiten' : 'Neuen Raum anlegen'"
-    :description="room ? 'Pflegehinweise und Futterangaben aktualisieren.' : 'Einen neuen Raum mit allen Pflegeinformationen erfassen.'"
     :dismissible="!saving"
     :ui="{
       content: 'w-[calc(100vw-1.5rem)] max-w-[1180px] rounded-[1.75rem] ring ring-default shadow-2xl',
@@ -82,6 +80,28 @@ function submit() {
       footer: 'p-4 sm:px-6 lg:px-8'
     }"
   >
+    <template #header>
+      <div class="flex w-full items-start justify-between gap-4">
+        <div>
+          <h2 class="section-title text-2xl">
+            {{ room ? 'Raum bearbeiten' : 'Neuen Raum anlegen' }}
+          </h2>
+          <p class="mt-1 text-sm text-[var(--surface-muted)]">
+            {{ room ? 'Pflegehinweise und Futterangaben aktualisieren.' : 'Einen neuen Raum mit allen Pflegeinformationen erfassen.' }}
+          </p>
+        </div>
+
+        <UButton
+          color="neutral"
+          variant="ghost"
+          icon="i-lucide-x"
+          aria-label="Modal schließen"
+          :disabled="saving"
+          @click="modalOpen = false"
+        />
+      </div>
+    </template>
+
     <template #body>
       <div class="space-y-5">
         <div

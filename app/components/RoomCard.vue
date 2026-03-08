@@ -4,8 +4,9 @@ import {
   daypartLabel,
   feedingPreview,
   formatDateTime,
+  inferredCurrentDaypart,
   roomDisplayName,
-  inferredCurrentDaypart
+  sanitizeRoomLogPayload
 } from '~/utils/cat-shelter'
 
 const props = defineProps<{
@@ -152,11 +153,10 @@ const defaultDaypart = computed(() => props.initialDaypart ?? inferredCurrentDay
           </div>
 
           <RoomLogForm
-            :room-id="room.id"
             :submitting="submitting"
             :reset-token="resetToken"
             :initial-daypart="defaultDaypart"
-            @submit-log="emit('submit-log', $event)"
+            @submit-log="emit('submit-log', sanitizeRoomLogPayload(room.id, $event))"
           />
         </div>
 

@@ -8,6 +8,7 @@ export type RoomUpdate = Database['public']['Tables']['rooms']['Update']
 export type FeedingHistoryEntry = Database['public']['Tables']['room_feeding_history']['Row']
 export type RoomLog = Database['public']['Tables']['room_logs']['Row']
 export type RoomLogInsert = Database['public']['Tables']['room_logs']['Insert']
+export type RoomLogUpdate = Database['public']['Tables']['room_logs']['Update']
 
 export interface RoomRelation {
   name: string
@@ -129,6 +130,38 @@ export function createRoomLogFormState(daypart: Daypart = 'morning'): RoomLogFor
     stool_watery: 0,
     employee_name: '',
     comment: ''
+  }
+}
+
+export function roomLogToFormState(log: Pick<RoomLog, keyof RoomLogFormState>): RoomLogFormState {
+  return {
+    daypart: log.daypart as Daypart,
+    ate_all_food: log.ate_all_food,
+    no_stool_found: log.no_stool_found,
+    stool_firm: log.stool_firm,
+    stool_almost_firm: log.stool_almost_firm,
+    stool_soft: log.stool_soft,
+    stool_mixed: log.stool_mixed,
+    stool_mushy: log.stool_mushy,
+    stool_watery: log.stool_watery,
+    employee_name: log.employee_name,
+    comment: log.comment ?? ''
+  }
+}
+
+export function sanitizeRoomLogState(state: RoomLogFormState): RoomLogUpdate {
+  return {
+    daypart: state.daypart,
+    ate_all_food: state.ate_all_food,
+    no_stool_found: state.no_stool_found,
+    stool_firm: state.no_stool_found ? 0 : clampInteger(state.stool_firm),
+    stool_almost_firm: state.no_stool_found ? 0 : clampInteger(state.stool_almost_firm),
+    stool_soft: state.no_stool_found ? 0 : clampInteger(state.stool_soft),
+    stool_mixed: state.no_stool_found ? 0 : clampInteger(state.stool_mixed),
+    stool_mushy: state.no_stool_found ? 0 : clampInteger(state.stool_mushy),
+    stool_watery: state.no_stool_found ? 0 : clampInteger(state.stool_watery),
+    employee_name: state.employee_name.trim(),
+    comment: emptyToNull(state.comment)
   }
 }
 
