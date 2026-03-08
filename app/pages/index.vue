@@ -370,9 +370,9 @@ onMounted(() => {
   <div class="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
     <section
       v-if="isAdmin"
-      class="grid gap-5 md:grid-cols-5"
+      class="admin-header-grid"
     >
-      <div class="md:col-span-3">
+      <div class="admin-header-grid__main">
         <UCard class="hero-card surface-card">
           <div class="space-y-5">
             <div class="space-y-2">
@@ -410,7 +410,7 @@ onMounted(() => {
         </UCard>
       </div>
 
-      <div class="md:col-span-2">
+      <div class="admin-header-grid__side">
         <UCard class="surface-card admin-card">
           <div class="space-y-4">
             <div>
@@ -621,11 +621,19 @@ onMounted(() => {
                 </h3>
               </div>
 
-              <UBadge
-                :color="completedRoomIds.has(room.id) ? 'success' : room.warning_info?.trim() ? 'warning' : 'primary'"
-                variant="subtle"
-                :label="completedRoomIds.has(room.id) ? 'Erledigt' : room.warning_info?.trim() ? 'Hinweis' : 'Offen'"
-              />
+              <div class="flex flex-wrap justify-end gap-2">
+                <UBadge
+                  :color="completedRoomIds.has(room.id) ? 'success' : 'primary'"
+                  variant="subtle"
+                  :label="completedRoomIds.has(room.id) ? 'Erledigt' : 'Offen'"
+                />
+                <UBadge
+                  v-if="room.warning_info?.trim()"
+                  color="warning"
+                  variant="subtle"
+                  label="Hinweis"
+                />
+              </div>
             </div>
 
             <p class="quick-room-copy">
