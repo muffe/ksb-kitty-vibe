@@ -89,10 +89,20 @@ h3,
   gap: 1.25rem;
 }
 
+ .admin-top-grid {
+  display: grid;
+  gap: 1.25rem;
+  align-items: start;
+}
+
 @media (min-width: 960px) {
   .top-grid {
     grid-template-columns: minmax(0, 1.2fr) minmax(22rem, 0.8fr);
     align-items: stretch;
+  }
+
+  .admin-top-grid {
+    grid-template-columns: minmax(0, 1.2fr) minmax(22rem, 0.8fr);
   }
 }
 

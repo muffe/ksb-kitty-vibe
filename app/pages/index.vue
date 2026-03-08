@@ -42,7 +42,6 @@ const selectedLog = ref<RoomLogWithRoom | null>(null)
 const preferredDaypart = ref<Daypart>('morning')
 
 const loginState = reactive({
-  email: '',
   password: ''
 })
 
@@ -53,17 +52,6 @@ const sortedRooms = computed(() => sortRooms(rooms.value))
 const nextSortOrder = computed(() => (sortedRooms.value.at(-1)?.sort_order ?? 0) + 1)
 const latestDashboardLogs = computed(() => recentLogs.value.slice(0, 8))
 
-const todayLogCount = computed(() => {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  return recentLogs.value.filter(log => new Date(log.created_at) >= today).length
-})
-
-const warningCount = computed(() =>
-  rooms.value.filter(room => room.warning_info?.trim()).length
-)
-
 const completedRoomIds = computed(() => {
   const today = new Date()
 
@@ -73,8 +61,6 @@ const completedRoomIds = computed(() => {
       .map(log => log.room_id)
   )
 })
-
-const completedCount = computed(() => completedRoomIds.value.size)
 
 const existingLogsByRoom = computed(() => {
   const today = new Date()
@@ -94,6 +80,40 @@ const existingLogsByRoom = computed(() => {
 
   return entries
 })
+
+const daypartCompletion = computed(() => {
+  const today = new Date()
+  const morningRooms = new Set<string>()
+  const eveningRooms = new Set<string>()
+
+  for (const log of recentLogs.value) {
+    if (!isSameCalendarDay(log.created_at, today)) {
+      continue
+    }
+
+    if (log.daypart === 'morning') {
+      morningRooms.add(log.room_id)
+      continue
+    }
+
+    if (log.daypart === 'evening') {
+      eveningRooms.add(log.room_id)
+    }
+  }
+
+  return {
+    morningCount: morningRooms.size,
+    eveningCount: eveningRooms.size
+  }
+})
+
+function formatRoomCompletion(count: number) {
+  if (!rooms.value.length) {
+    return '0%'
+  }
+
+  return `${Math.round((count / rooms.value.length) * 100)}%`
+}
 
 async function refreshAll() {
   loading.value = true
@@ -276,20 +296,32 @@ async function signInAdmin() {
   loginPending.value = true
   loginError.value = ''
 
-  const { error } = await supabase.auth.signInWithPassword({
-    email: loginState.email.trim(),
-    password: loginState.password
-  })
+  try {
+    const session = await $fetch<{ access_token: string, refresh_token: string }>('/api/admin/login', {
+      method: 'POST',
+      body: {
+        password: loginState.password
+      }
+    })
 
-  if (error) {
+    const { error } = await supabase.auth.setSession({
+      access_token: session.access_token,
+      refresh_token: session.refresh_token
+    })
+
+    if (error) {
+      loginPending.value = false
+      loginError.value = error.message
+      return
+    }
+  } catch (error) {
     loginPending.value = false
-    loginError.value = error.message
+    loginError.value = error instanceof Error ? error.message : 'Anmeldung fehlgeschlagen.'
     return
   }
 
   loginPending.value = false
   loginModalOpen.value = false
-  loginState.email = ''
   loginState.password = ''
   await refreshAll()
 
@@ -338,7 +370,7 @@ onMounted(() => {
   <div class="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
     <section
       v-if="isAdmin"
-      class="grid items-start gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(22rem,0.8fr)]"
+      class="admin-top-grid"
     >
       <UCard class="hero-card surface-card">
         <div class="space-y-5">
@@ -382,6 +414,41 @@ onMounted(() => {
             <h2 class="section-title">
               Admin-Zugang
             </h2>
+          </div>
+
+          <div class="grid gap-3 sm:grid-cols-3">
+            <div class="rounded-[1.35rem] border border-[var(--surface-line)] bg-white/82 px-4 py-4">
+              <p class="section-kicker">
+                Räume
+              </p>
+              <p class="mt-2 text-2xl font-semibold text-[var(--surface-ink)]">
+                {{ rooms.length }}
+              </p>
+            </div>
+
+            <div class="rounded-[1.35rem] border border-[var(--surface-line)] bg-white/82 px-4 py-4">
+              <p class="section-kicker">
+                Morgens
+              </p>
+              <p class="mt-2 text-2xl font-semibold text-[var(--surface-ink)]">
+                {{ formatRoomCompletion(daypartCompletion.morningCount) }}
+              </p>
+              <p class="mt-1 text-sm text-[var(--surface-muted)]">
+                {{ daypartCompletion.morningCount }} von {{ rooms.length }} protokolliert
+              </p>
+            </div>
+
+            <div class="rounded-[1.35rem] border border-[var(--surface-line)] bg-white/82 px-4 py-4">
+              <p class="section-kicker">
+                Abends
+              </p>
+              <p class="mt-2 text-2xl font-semibold text-[var(--surface-ink)]">
+                {{ formatRoomCompletion(daypartCompletion.eveningCount) }}
+              </p>
+              <p class="mt-1 text-sm text-[var(--surface-muted)]">
+                {{ daypartCompletion.eveningCount }} von {{ rooms.length }} protokolliert
+              </p>
+            </div>
           </div>
 
           <div class="grid gap-3 sm:grid-cols-2">
@@ -487,56 +554,6 @@ onMounted(() => {
         @click="notice = null"
       />
     </div>
-
-    <section class="stats-grid">
-      <UCard class="stat-card">
-        <p class="section-kicker">
-          Räume
-        </p>
-        <p class="stat-value">
-          {{ rooms.length }}
-        </p>
-        <p class="stat-copy">
-          aktive Räume im aktuellen Ablauf
-        </p>
-      </UCard>
-
-      <UCard class="stat-card">
-        <p class="section-kicker">
-          Warnhinweise
-        </p>
-        <p class="stat-value">
-          {{ warningCount }}
-        </p>
-        <p class="stat-copy">
-          Räume mit besonderen Risiken oder Infos
-        </p>
-      </UCard>
-
-      <UCard class="stat-card">
-        <p class="section-kicker">
-          Einträge heute
-        </p>
-        <p class="stat-value">
-          {{ todayLogCount }}
-        </p>
-        <p class="stat-copy">
-          Protokolle seit Mitternacht
-        </p>
-      </UCard>
-
-      <UCard class="stat-card">
-        <p class="section-kicker">
-          {{ daypartLabel(preferredDaypart) }}
-        </p>
-        <p class="stat-value">
-          {{ completedCount }}
-        </p>
-        <p class="stat-copy">
-          Räume heute bereits protokolliert
-        </p>
-      </UCard>
-    </section>
 
     <section
       id="schneller-einstieg"
@@ -737,7 +754,7 @@ onMounted(() => {
               Admin-Anmeldung
             </h2>
             <p class="mt-1 text-sm text-[var(--surface-muted)]">
-              Nur für verwaltende Konten mit Supabase-E-Mail/Passwort.
+              Passwort eingeben, um den Admin-Modus zu öffnen.
             </p>
           </div>
 
@@ -760,16 +777,6 @@ onMounted(() => {
           >
             {{ loginError }}
           </div>
-
-          <label class="field-block">
-            <span class="field-label">E-Mail</span>
-            <UInput
-              v-model="loginState.email"
-              type="email"
-              placeholder="admin@beispiel.de"
-              :ui="readableInputUi"
-            />
-          </label>
 
           <label class="field-block">
             <span class="field-label">Passwort</span>
