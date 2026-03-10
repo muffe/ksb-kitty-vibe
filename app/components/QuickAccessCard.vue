@@ -10,6 +10,7 @@ import {
 defineProps<{
   preferredDaypart: Daypart
   rooms: Room[]
+  hasRecentOrderChange: boolean
   completedRoomIds: Set<string>
   latestLogByRoom: Map<string, RoomLogWithRoom>
   nextOpenRoom: Room | null
@@ -57,6 +58,21 @@ const emit = defineEmits<{
         </div>
 
         <div class="quick-progress-panel">
+          <UAlert
+            v-if="hasRecentOrderChange"
+            color="warning"
+            variant="outline"
+            icon="i-lucide-triangle-alert"
+            title="Reihenfolge kürzlich geändert"
+            description="Bitte die aktuelle Raumreihenfolge bewusst beachten und den Rundgang strikt nach der Nummerierung abarbeiten."
+            :ui="{
+              root: 'mb-4 rounded-[1.2rem] border-amber-300 bg-amber-50 text-amber-950',
+              icon: 'text-amber-700',
+              title: 'text-sm font-semibold text-amber-950',
+              description: 'text-sm leading-6 text-amber-900'
+            }"
+          />
+
           <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p class="section-kicker">

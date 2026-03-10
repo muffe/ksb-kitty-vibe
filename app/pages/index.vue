@@ -47,6 +47,17 @@ const showHydratedAdmin = computed(() => hydrated.value && isAdmin.value)
 const showHydratedGuestActions = computed(() => hydrated.value && !isAdmin.value)
 
 const sortedRooms = computed(() => sortRooms(rooms.value))
+const recentOrderChangeCount = computed(() => {
+  const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000)
+
+  return rooms.value.filter((room) => {
+    const updatedAt = new Date(room.updated_at).getTime()
+    const createdAt = new Date(room.created_at).getTime()
+
+    return updatedAt >= sevenDaysAgo && updatedAt > createdAt
+  }).length
+})
+const hasRecentOrderChange = computed(() => recentOrderChangeCount.value >= 2)
 
 const nextSortOrder = computed(() => (sortedRooms.value.at(-1)?.sort_order ?? 0) + 1)
 const latestDashboardLogs = computed(() => recentLogs.value.slice(0, 8))
@@ -586,6 +597,7 @@ onMounted(() => {
         <QuickAccessCard
           :preferred-daypart="preferredDaypart"
           :rooms="sortedRooms"
+          :has-recent-order-change="hasRecentOrderChange"
           :completed-room-ids="completedRoomIds"
           :latest-log-by-room="latestLogByRoom"
           :next-open-room="nextOpenRoom"
