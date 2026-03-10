@@ -96,7 +96,6 @@ h3,
   }
 }
 
-.hero-card,
 .surface-card,
 .room-card,
 .stat-card {
@@ -106,14 +105,12 @@ h3,
   box-shadow: 0 24px 60px rgba(58, 44, 31, 0.08);
 }
 
-.hero-card {
+.hero-card-body {
   position: relative;
-  overflow: hidden;
-  border-radius: 2rem;
-  padding: 0.35rem;
+  z-index: 0;
 }
 
-.hero-card::after {
+.hero-card-body::after {
   position: absolute;
   right: -3rem;
   top: -4rem;
@@ -122,6 +119,8 @@ h3,
   border-radius: 999px;
   background: radial-gradient(circle, rgba(21, 167, 159, 0.24), transparent 70%);
   content: "";
+  pointer-events: none;
+  z-index: -1;
 }
 
 .hero-title {
@@ -471,7 +470,6 @@ h3,
     font-size: 17px;
   }
 
-  .hero-card,
   .surface-card,
   .room-card,
   .stat-card {

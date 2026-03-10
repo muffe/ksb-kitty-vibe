@@ -23,9 +23,10 @@ const emit = defineEmits<{
 
 <template>
   <UCard
-    class="hero-card"
+    class="surface-card"
     :ui="{
-      body: 'p-5 sm:p-6 lg:p-7'
+      root: 'relative overflow-hidden rounded-[1.6rem] lg:rounded-[2rem]',
+      body: 'hero-card-body p-5 sm:p-6 lg:p-7'
     }"
   >
     <div class="space-y-5">

@@ -42,6 +42,9 @@ const loginState = reactive({
 })
 
 const isAdmin = computed(() => Boolean(adminUser.value))
+const hydrated = ref(false)
+const showHydratedAdmin = computed(() => hydrated.value && authReady.value && isAdmin.value)
+const showHydratedGuestActions = computed(() => hydrated.value && authReady.value && !isAdmin.value)
 
 const sortedRooms = computed(() => sortRooms(rooms.value))
 
@@ -390,29 +393,17 @@ watch(
 onMounted(refreshAll)
 onMounted(() => {
   preferredDaypart.value = inferredCurrentDaypart()
+  hydrated.value = true
 })
 </script>
 
 <template>
   <div class="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
-    <section v-if="isAdmin">
-      <DashboardHeroCard
-        is-admin
-        :rooms-count="rooms.length"
-        :morning-completion="formatRoomCompletion(daypartCompletion.morningCount)"
-        :morning-count="daypartCompletion.morningCount"
-        :evening-completion="formatRoomCompletion(daypartCompletion.eveningCount)"
-        :evening-count="daypartCompletion.eveningCount"
-        @create-room="openCreateRoomModal"
-        @sign-out="signOutAdmin"
-      />
-    </section>
-
-    <section
-      v-else
-      class="space-y-3"
-    >
-      <div class="flex justify-end">
+    <section class="space-y-3">
+      <div
+        v-if="showHydratedGuestActions"
+        class="flex justify-end"
+      >
         <UButton
           color="neutral"
           variant="link"
@@ -423,7 +414,16 @@ onMounted(() => {
         />
       </div>
 
-      <DashboardHeroCard />
+      <DashboardHeroCard
+        :is-admin="showHydratedAdmin"
+        :rooms-count="rooms.length"
+        :morning-completion="formatRoomCompletion(daypartCompletion.morningCount)"
+        :morning-count="daypartCompletion.morningCount"
+        :evening-completion="formatRoomCompletion(daypartCompletion.eveningCount)"
+        :evening-count="daypartCompletion.eveningCount"
+        @create-room="openCreateRoomModal"
+        @sign-out="signOutAdmin"
+      />
     </section>
 
     <div
