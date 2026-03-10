@@ -11,6 +11,10 @@ function rejectRequest(event: H3Event): never {
 }
 
 export default defineEventHandler((event) => {
+  if (import.meta.dev) {
+    return
+  }
+
   const config = useRuntimeConfig(event)
   const authorization = getHeader(event, 'authorization')
 
