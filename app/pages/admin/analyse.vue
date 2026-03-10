@@ -30,6 +30,23 @@ const riskCounts = computed(() => ({
   yellow: analysis.value.roomSummaries.filter(summary => summary.severity === 'yellow').length,
   green: analysis.value.roomSummaries.filter(summary => summary.severity === 'green').length
 }))
+const compactRoomSummaries = computed(() => {
+  const order = {
+    red: 0,
+    yellow: 1,
+    green: 2
+  } as const
+
+  return [...analysis.value.roomSummaries].sort((left, right) => {
+    const severityDiff = order[left.severity] - order[right.severity]
+
+    if (severityDiff !== 0) {
+      return severityDiff
+    }
+
+    return left.room.sort_order - right.room.sort_order
+  })
+})
 
 function severityLabel(severity: AlertSeverity) {
   if (severity === 'red') {
@@ -53,6 +70,18 @@ function severityColor(severity: AlertSeverity) {
   }
 
   return 'success'
+}
+
+function severityDotClass(severity: AlertSeverity) {
+  if (severity === 'red') {
+    return 'bg-red-500 ring-red-200'
+  }
+
+  if (severity === 'yellow') {
+    return 'bg-amber-400 ring-amber-200'
+  }
+
+  return 'bg-emerald-500 ring-emerald-200'
 }
 
 async function refreshAll() {
@@ -234,206 +263,7 @@ onMounted(() => {
       </UCard>
 
       <template v-else>
-        <section class="content-grid">
-          <UCard class="surface-card">
-            <template #header>
-              <div class="flex items-center justify-between gap-3">
-                <div>
-                  <h2 class="section-title">
-                    Frühwarnungen
-                  </h2>
-                </div>
-                <UBadge
-                  :color="earlyWarnings.some(entry => entry.severity === 'red') ? 'error' : 'warning'"
-                  variant="subtle"
-                  :label="`${earlyWarnings.length} Hinweise`"
-                />
-              </div>
-            </template>
-
-            <div
-              v-if="!earlyWarnings.length"
-              class="rounded-2xl border border-dashed border-[var(--surface-line)] px-4 py-5 text-sm text-[var(--surface-muted)]"
-            >
-              Aktuell gibt es keine automatischen Warnungen.
-            </div>
-
-            <div
-              v-else
-              class="space-y-3"
-            >
-              <div
-                v-for="entry in earlyWarnings"
-                :key="`${entry.room.id}-${entry.title}-${entry.detectedAt}`"
-                class="rounded-[1.35rem] border border-[var(--surface-line)] bg-white/86 p-4"
-              >
-                <div class="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p class="text-sm font-semibold text-[var(--surface-ink)]">
-                      {{ roomDisplayName(entry.room) }}
-                    </p>
-                    <p class="mt-1 text-sm text-[var(--surface-muted)]">
-                      {{ entry.description }}
-                    </p>
-                  </div>
-
-                  <div class="flex flex-wrap gap-2">
-                    <UBadge
-                      :color="severityColor(entry.severity)"
-                      variant="subtle"
-                      :label="severityLabel(entry.severity)"
-                    />
-                    <UBadge
-                      color="neutral"
-                      variant="subtle"
-                      :label="formatDateTime(entry.detectedAt)"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </UCard>
-
-          <UCard class="surface-card">
-            <template #header>
-              <div class="flex items-center justify-between gap-3">
-                <div>
-                  <h2 class="section-title">
-                    Übersicht pro Tageszeit
-                  </h2>
-                </div>
-                <UBadge
-                  color="neutral"
-                  variant="subtle"
-                  :label="`${analysis.daypartOverview.length} Bereiche`"
-                />
-              </div>
-            </template>
-
-            <div class="space-y-3">
-              <div
-                v-for="entry in analysis.daypartOverview"
-                :key="entry.daypart"
-                class="rounded-[1.35rem] border border-[var(--surface-line)] bg-white/86 p-4"
-              >
-                <div class="flex flex-wrap items-center justify-between gap-3">
-                  <h3 class="section-title text-lg">
-                    {{ daypartLabel(entry.daypart) }}
-                  </h3>
-                  <UBadge
-                    color="primary"
-                    variant="subtle"
-                    :label="`${entry.completedRooms} Räume protokolliert`"
-                  />
-                </div>
-
-                <div class="mt-3 grid gap-3 sm:grid-cols-2">
-                  <p class="text-sm text-[var(--surface-muted)]">
-                    Futter nicht vollständig:
-                    <span class="font-semibold text-[var(--surface-ink)]">{{ entry.incompleteFoodRooms }}</span>
-                  </p>
-                  <p class="text-sm text-[var(--surface-muted)]">
-                    Kein Kot:
-                    <span class="font-semibold text-[var(--surface-ink)]">{{ entry.noStoolRooms }}</span>
-                  </p>
-                  <p class="text-sm text-[var(--surface-muted)]">
-                    Brei/Wässrig:
-                    <span class="font-semibold text-[var(--surface-ink)]">{{ entry.softStoolRooms }}</span>
-                  </p>
-                  <p class="text-sm text-[var(--surface-muted)]">
-                    Prioritätskommentare:
-                    <span class="font-semibold text-[var(--surface-ink)]">{{ entry.priorityComments }}</span>
-                  </p>
-                </div>
-
-                <div
-                  v-if="entry.topRiskRooms.length"
-                  class="mt-4 flex flex-wrap gap-2"
-                >
-                  <UBadge
-                    v-for="risk in entry.topRiskRooms"
-                    :key="`${entry.daypart}-${risk.room.id}`"
-                    color="warning"
-                    variant="subtle"
-                    :label="`${roomDisplayName(risk.room)} (${risk.issues})`"
-                  />
-                </div>
-              </div>
-            </div>
-          </UCard>
-        </section>
-
-        <UCard class="surface-card">
-          <template #header>
-            <div class="flex items-center justify-between gap-3">
-              <div>
-                <h2 class="section-title">
-                  Offene Probleme
-                </h2>
-              </div>
-              <UBadge
-                :color="analysis.openIssues.some(entry => entry.severity === 'red') ? 'error' : 'warning'"
-                variant="subtle"
-                :label="`${analysis.openIssues.length} Räume auffällig`"
-              />
-            </div>
-          </template>
-
-          <div
-            v-if="!analysis.openIssues.length"
-            class="rounded-2xl border border-dashed border-[var(--surface-line)] px-4 py-5 text-sm text-[var(--surface-muted)]"
-          >
-            Aktuell gibt es keine offenen Probleme.
-          </div>
-
-          <div
-            v-else
-            class="space-y-4"
-          >
-            <div
-              v-for="summary in analysis.openIssues"
-              :key="summary.room.id"
-              class="rounded-[1.45rem] border border-[var(--surface-line)] bg-white/86 p-4"
-            >
-              <div class="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h3 class="section-title text-lg">
-                    {{ roomDisplayName(summary.room) }}
-                  </h3>
-                  <p
-                    v-if="summary.latestEmployee && summary.latestLogAt"
-                    class="mt-1 text-sm text-[var(--surface-muted)]"
-                  >
-                    Letzter Eintrag: {{ summary.latestEmployee }} · {{ formatDateTime(summary.latestLogAt) }}
-                  </p>
-                </div>
-
-                <UBadge
-                  :color="severityColor(summary.severity)"
-                  variant="subtle"
-                  :label="severityLabel(summary.severity)"
-                />
-              </div>
-
-              <div class="mt-4 grid gap-3 lg:grid-cols-2">
-                <div
-                  v-for="issue in summary.issues"
-                  :key="`${summary.room.id}-${issue.code}`"
-                  class="rounded-[1rem] bg-[var(--surface-panel)] px-3 py-3"
-                >
-                  <p class="text-sm font-semibold text-[var(--surface-ink)]">
-                    {{ issue.title }}
-                  </p>
-                  <p class="mt-1 text-sm leading-6 text-[var(--surface-muted)]">
-                    {{ issue.description }}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </UCard>
-
-        <section class="content-grid">
+        <section class="space-y-6">
           <UCard class="surface-card">
             <template #header>
               <div class="flex items-center justify-between gap-3">
@@ -442,149 +272,181 @@ onMounted(() => {
                     Ampel pro Raum
                   </h2>
                 </div>
-                <UBadge
-                  color="neutral"
-                  variant="subtle"
-                  :label="`${analysis.roomSummaries.length} Räume`"
-                />
+                <div class="flex flex-wrap gap-2">
+                  <UBadge color="error" variant="subtle" :label="`${riskCounts.red} Rot`" />
+                  <UBadge color="warning" variant="subtle" :label="`${riskCounts.yellow} Gelb`" />
+                  <UBadge color="success" variant="subtle" :label="`${riskCounts.green} Grün`" />
+                </div>
               </div>
             </template>
 
-            <div class="space-y-3">
-              <div
-                v-for="summary in analysis.roomSummaries"
+            <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+              <UTooltip
+                v-for="summary in compactRoomSummaries"
                 :key="summary.room.id"
-                class="rounded-[1.35rem] border border-[var(--surface-line)] bg-white/86 p-4"
+                :delay-duration="0"
+                arrow
               >
-                <div class="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p class="text-sm font-semibold text-[var(--surface-ink)]">
+                <button
+                  type="button"
+                  class="flex min-h-18 items-center gap-2 rounded-[1.1rem] border border-[var(--surface-line)] bg-white/86 px-3 py-2 text-left transition hover:border-[var(--ui-border-accented)] hover:bg-white"
+                >
+                  <span
+                    class="size-2.5 shrink-0 rounded-full ring-3"
+                    :class="severityDotClass(summary.severity)"
+                  />
+
+                  <div class="min-w-0">
+                    <p class="truncate text-sm font-semibold text-[var(--surface-ink)]">
                       {{ roomDisplayName(summary.room) }}
                     </p>
-                    <p class="mt-1 text-sm text-[var(--surface-muted)]">
-                      {{ summary.issues[0]?.title || 'Aktuell unauffällig' }}
+                    <p class="mt-0.5 text-[11px] leading-4 text-[var(--surface-muted)]">
+                      {{ summary.issues.length ? `${summary.issues.length} Hinweis${summary.issues.length > 1 ? 'e' : ''}` : 'OK' }}
                     </p>
                   </div>
+                </button>
 
+                <template #content>
+                  <div class="max-w-xs space-y-2">
+                    <p class="text-sm font-semibold text-[var(--ui-text-highlighted)]">
+                      {{ roomDisplayName(summary.room) }} · {{ severityLabel(summary.severity) }}
+                    </p>
+                    <p
+                      v-if="summary.latestEmployee && summary.latestLogAt"
+                      class="text-xs leading-5 text-[var(--ui-text-muted)]"
+                    >
+                      Letzter Eintrag: {{ summary.latestEmployee }} · {{ formatDateTime(summary.latestLogAt) }}
+                    </p>
+                    <p
+                      v-if="!summary.issues.length"
+                      class="text-xs leading-5 text-[var(--ui-text-muted)]"
+                    >
+                      Aktuell keine Auffälligkeiten.
+                    </p>
+                    <ul
+                      v-else
+                      class="space-y-1 text-xs leading-5 text-[var(--ui-text-muted)]"
+                    >
+                      <li
+                        v-for="issue in summary.issues.slice(0, 3)"
+                        :key="`${summary.room.id}-${issue.code}`"
+                      >
+                        {{ issue.title }}
+                      </li>
+                    </ul>
+                  </div>
+                </template>
+              </UTooltip>
+            </div>
+          </UCard>
+
+          <section class="content-grid">
+            <UCard class="surface-card">
+              <template #header>
+                <div class="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 class="section-title">
+                      Sofort prüfen
+                    </h2>
+                  </div>
                   <UBadge
-                    :color="severityColor(summary.severity)"
+                    :color="earlyWarnings.some(entry => entry.severity === 'red') ? 'error' : 'warning'"
                     variant="subtle"
-                    :label="severityLabel(summary.severity)"
+                    :label="`${earlyWarnings.length} Hinweise`"
                   />
                 </div>
-              </div>
-            </div>
-          </UCard>
+              </template>
 
-          <UCard class="surface-card">
-            <template #header>
-              <div class="flex items-center justify-between gap-3">
-                <div>
-                  <h2 class="section-title">
-                    Bearbeitungsmonitor
-                  </h2>
-                </div>
-                <UBadge
-                  color="neutral"
-                  variant="subtle"
-                  :label="`${analysis.editedLogs.length} Nachträge`"
-                />
-              </div>
-            </template>
-
-            <div
-              v-if="!analysis.editedLogs.length"
-              class="rounded-2xl border border-dashed border-[var(--surface-line)] px-4 py-5 text-sm text-[var(--surface-muted)]"
-            >
-              Bisher wurden keine Protokolle nachträglich geändert.
-            </div>
-
-            <div
-              v-else
-              class="space-y-3"
-            >
               <div
-                v-for="log in analysis.editedLogs.slice(0, 12)"
-                :key="log.id"
-                class="rounded-[1.35rem] border border-[var(--surface-line)] bg-white/86 p-4"
+                v-if="!earlyWarnings.length"
+                class="rounded-2xl border border-dashed border-[var(--surface-line)] px-4 py-5 text-sm text-[var(--surface-muted)]"
               >
-                <p class="text-sm font-semibold text-[var(--surface-ink)]">
-                  {{ log.room ? roomDisplayName(log.room) : 'Unbekannter Raum' }}
-                </p>
-                <p class="mt-1 text-sm text-[var(--surface-muted)]">
-                  Erstellt: {{ formatDateTime(log.created_at) }} · Aktualisiert: {{ formatDateTime(log.updated_at) }}
-                </p>
-              </div>
-            </div>
-          </UCard>
-        </section>
-
-        <UCard class="surface-card">
-          <template #header>
-            <div class="flex items-center justify-between gap-3">
-              <div>
-                <h2 class="section-title">
-                  Trendansicht pro Raum
-                </h2>
-              </div>
-              <UBadge
-                color="neutral"
-                variant="subtle"
-                label="letzte 7 Tage"
-              />
-            </div>
-          </template>
-
-          <div class="grid gap-4 lg:grid-cols-2">
-            <div
-              v-for="trend in analysis.trendSummaries"
-              :key="trend.room.id"
-              class="rounded-[1.45rem] border border-[var(--surface-line)] bg-white/86 p-4"
-            >
-              <div class="flex flex-wrap items-center justify-between gap-3">
-                <h3 class="section-title text-lg">
-                  {{ roomDisplayName(trend.room) }}
-                </h3>
-                <UBadge
-                  color="neutral"
-                  variant="subtle"
-                  :label="`${trend.entries7d} Einträge`"
-                />
+                Aktuell gibt es keine automatischen Warnungen.
               </div>
 
-              <div class="mt-4 grid gap-3 sm:grid-cols-2">
-                <p class="text-sm text-[var(--surface-muted)]">
-                  Futter nicht vollständig:
-                  <span class="font-semibold text-[var(--surface-ink)]">{{ trend.incompleteFood7d }}</span>
-                </p>
-                <p class="text-sm text-[var(--surface-muted)]">
-                  Kein Kot:
-                  <span class="font-semibold text-[var(--surface-ink)]">{{ trend.noStool7d }}</span>
-                </p>
-                <p class="text-sm text-[var(--surface-muted)]">
-                  Brei/Wässrig:
-                  <span class="font-semibold text-[var(--surface-ink)]">{{ trend.softStool7d }}</span>
-                </p>
-                <p class="text-sm text-[var(--surface-muted)]">
-                  Kommentare:
-                  <span class="font-semibold text-[var(--surface-ink)]">{{ trend.commentCount7d }}</span>
-                </p>
-                <p class="text-sm text-[var(--surface-muted)]">
-                  Nachträge:
-                  <span class="font-semibold text-[var(--surface-ink)]">{{ trend.editedCount7d }}</span>
-                </p>
-                <p
-                  v-if="trend.latestEmployee && trend.latestLogAt"
-                  class="text-sm text-[var(--surface-muted)]"
+              <div
+                v-else
+                class="space-y-3"
+              >
+                <div
+                  v-for="entry in earlyWarnings"
+                  :key="`${entry.room.id}-${entry.title}-${entry.detectedAt}`"
+                  class="rounded-[1.35rem] border border-[var(--surface-line)] bg-white/86 p-4"
                 >
-                  Letzter Eintrag: <span class="font-semibold text-[var(--surface-ink)]">{{ trend.latestEmployee }}</span>
-                </p>
-              </div>
-            </div>
-          </div>
-        </UCard>
+                  <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p class="text-sm font-semibold text-[var(--surface-ink)]">
+                        {{ roomDisplayName(entry.room) }}
+                      </p>
+                      <p class="mt-1 text-sm text-[var(--surface-muted)]">
+                        {{ entry.title }}
+                      </p>
+                    </div>
 
-        <section class="content-grid">
+                    <div class="flex flex-wrap gap-2">
+                      <UBadge
+                        :color="severityColor(entry.severity)"
+                        variant="subtle"
+                        :label="severityLabel(entry.severity)"
+                      />
+                      <UBadge
+                        color="neutral"
+                        variant="subtle"
+                        :label="formatDateTime(entry.detectedAt)"
+                      />
+                    </div>
+                  </div>
+
+                  <p class="mt-3 text-sm leading-6 text-[var(--surface-muted)]">
+                    {{ entry.description }}
+                  </p>
+                </div>
+              </div>
+            </UCard>
+
+            <UCard class="surface-card">
+              <template #header>
+                <div class="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 class="section-title">
+                      Nachträge
+                    </h2>
+                  </div>
+                  <UBadge
+                    color="neutral"
+                    variant="subtle"
+                    :label="`${analysis.editedLogs.length} Änderungen`"
+                  />
+                </div>
+              </template>
+
+              <div
+                v-if="!analysis.editedLogs.length"
+                class="rounded-2xl border border-dashed border-[var(--surface-line)] px-4 py-5 text-sm text-[var(--surface-muted)]"
+              >
+                Keine nachträglich bearbeiteten Protokolle.
+              </div>
+
+              <div
+                v-else
+                class="space-y-3"
+              >
+                <div
+                  v-for="log in analysis.editedLogs.slice(0, 10)"
+                  :key="log.id"
+                  class="rounded-[1.35rem] border border-[var(--surface-line)] bg-white/86 p-4"
+                >
+                  <p class="text-sm font-semibold text-[var(--surface-ink)]">
+                    {{ log.room ? roomDisplayName(log.room) : 'Unbekannter Raum' }}
+                  </p>
+                  <p class="mt-1 text-sm text-[var(--surface-muted)]">
+                    Erstellt: {{ formatDateTime(log.created_at) }} · Aktualisiert: {{ formatDateTime(log.updated_at) }}
+                  </p>
+                </div>
+              </div>
+            </UCard>
+          </section>
+
           <UCard class="surface-card">
             <template #header>
               <div class="flex items-center justify-between gap-3">
@@ -613,7 +475,7 @@ onMounted(() => {
               class="space-y-3"
             >
               <div
-                v-for="entry in analysis.priorityComments.slice(0, 16)"
+                v-for="entry in analysis.priorityComments.slice(0, 12)"
                 :key="entry.log.id"
                 class="rounded-[1.35rem] border border-[var(--surface-line)] bg-white/86 p-4"
               >
@@ -640,69 +502,6 @@ onMounted(() => {
 
                 <p class="mt-3 text-sm leading-6 text-[var(--surface-muted)]">
                   {{ entry.log.comment }}
-                </p>
-              </div>
-            </div>
-          </UCard>
-
-          <UCard class="surface-card">
-            <template #header>
-              <div class="flex items-center justify-between gap-3">
-                <div>
-                  <h2 class="section-title">
-                    Warnungs-Feed
-                  </h2>
-                </div>
-                <UBadge
-                  color="neutral"
-                  variant="subtle"
-                  :label="`${analysis.warningFeed.length} Einträge`"
-                />
-              </div>
-            </template>
-
-            <div
-              v-if="!analysis.warningFeed.length"
-              class="rounded-2xl border border-dashed border-[var(--surface-line)] px-4 py-5 text-sm text-[var(--surface-muted)]"
-            >
-              Kein automatischer Feed vorhanden.
-            </div>
-
-            <div
-              v-else
-              class="space-y-3"
-            >
-              <div
-                v-for="entry in analysis.warningFeed.slice(0, 16)"
-                :key="`${entry.room.id}-${entry.title}-${entry.detectedAt}`"
-                class="rounded-[1.35rem] border border-[var(--surface-line)] bg-white/86 p-4"
-              >
-                <div class="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p class="text-sm font-semibold text-[var(--surface-ink)]">
-                      {{ roomDisplayName(entry.room) }}
-                    </p>
-                    <p class="mt-1 text-sm text-[var(--surface-muted)]">
-                      {{ entry.title }}
-                    </p>
-                  </div>
-
-                  <div class="flex flex-wrap gap-2">
-                    <UBadge
-                      :color="severityColor(entry.severity)"
-                      variant="subtle"
-                      :label="severityLabel(entry.severity)"
-                    />
-                    <UBadge
-                      color="neutral"
-                      variant="subtle"
-                      :label="formatDateTime(entry.detectedAt)"
-                    />
-                  </div>
-                </div>
-
-                <p class="mt-3 text-sm leading-6 text-[var(--surface-muted)]">
-                  {{ entry.description }}
                 </p>
               </div>
             </div>
