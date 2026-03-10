@@ -43,8 +43,8 @@ const loginState = reactive({
 
 const isAdmin = computed(() => Boolean(adminUser.value))
 const hydrated = ref(false)
-const showHydratedAdmin = computed(() => hydrated.value && authReady.value && isAdmin.value)
-const showHydratedGuestActions = computed(() => hydrated.value && authReady.value && !isAdmin.value)
+const showHydratedAdmin = computed(() => hydrated.value && isAdmin.value)
+const showHydratedGuestActions = computed(() => hydrated.value && !isAdmin.value)
 
 const sortedRooms = computed(() => sortRooms(rooms.value))
 
@@ -139,9 +139,7 @@ function formatRoomCompletion(count: number) {
   return `${Math.round((count / rooms.value.length) * 100)}%`
 }
 
-async function refreshAll() {
-  loading.value = true
-
+async function fetchDashboardData() {
   const [roomsResult, logsResult] = await Promise.all([
     supabase
       .from('rooms')
@@ -172,20 +170,63 @@ async function refreshAll() {
   ])
 
   if (roomsResult.error) {
-    loading.value = false
-    setNotice('error', 'Räume konnten nicht geladen werden.', roomsResult.error.message)
-    return
+    throw new Error(`ROOMS:${roomsResult.error.message}`)
   }
 
   if (logsResult.error) {
-    loading.value = false
-    setNotice('error', 'Protokolle konnten nicht geladen werden.', logsResult.error.message)
+    throw new Error(`LOGS:${logsResult.error.message}`)
+  }
+
+  return {
+    rooms: (roomsResult.data ?? []) as Room[],
+    recentLogs: (logsResult.data ?? []) as RoomLogWithRoom[]
+  }
+}
+
+const { data: dashboardData, status: dashboardStatus, error: dashboardError, refresh: refreshDashboard } = await useAsyncData(
+  'index-dashboard',
+  fetchDashboardData,
+  {
+    default: () => ({
+      rooms: [],
+      recentLogs: []
+    })
+  }
+)
+
+function syncDashboardState() {
+  rooms.value = dashboardData.value.rooms
+  recentLogs.value = dashboardData.value.recentLogs
+  loading.value = dashboardStatus.value === 'pending'
+}
+
+function syncDashboardError() {
+  const message = dashboardError.value?.message
+
+  if (!message) {
     return
   }
 
-  rooms.value = (roomsResult.data ?? []) as Room[]
-  recentLogs.value = (logsResult.data ?? []) as RoomLogWithRoom[]
-  loading.value = false
+  if (message.startsWith('ROOMS:')) {
+    setNotice('error', 'Räume konnten nicht geladen werden.', message.slice('ROOMS:'.length))
+    return
+  }
+
+  if (message.startsWith('LOGS:')) {
+    setNotice('error', 'Protokolle konnten nicht geladen werden.', message.slice('LOGS:'.length))
+    return
+  }
+
+  setNotice('error', 'Dashboard konnte nicht geladen werden.', message)
+}
+
+async function refreshAll() {
+  await refreshDashboard()
+  syncDashboardState()
+
+  if (dashboardStatus.value === 'error') {
+    syncDashboardError()
+  }
 }
 
 function openCreateRoomModal() {
@@ -381,16 +422,9 @@ watch(roomModalOpen, (value) => {
   }
 })
 
-watch(
-  () => adminUser.value?.id,
-  async () => {
-    if (authReady.value) {
-      await refreshAll()
-    }
-  }
-)
+watch([dashboardData, dashboardStatus], syncDashboardState, { immediate: true })
+watch(dashboardError, syncDashboardError)
 
-onMounted(refreshAll)
 onMounted(() => {
   preferredDaypart.value = inferredCurrentDaypart()
   hydrated.value = true
@@ -453,22 +487,119 @@ onMounted(() => {
       id="schneller-einstieg"
       class="content-grid"
     >
-      <QuickAccessCard
-        :preferred-daypart="preferredDaypart"
-        :rooms="sortedRooms"
-        :completed-room-ids="completedRoomIds"
-        :latest-log-by-room="latestLogByRoom"
-        :next-open-room="nextOpenRoom"
-        :round-progress="roundProgress"
-        @open-room="openQuickProtocol"
-        @open-next="openNextOpenRoom"
-      />
+      <template v-if="loading">
+        <UCard class="surface-card">
+          <template #header>
+            <div class="space-y-4">
+              <div class="flex items-center justify-between gap-3">
+                <div class="space-y-2">
+                  <USkeleton class="h-7 w-44 rounded-full" />
+                  <USkeleton class="h-5 w-36 rounded-full" />
+                </div>
+                <div class="flex gap-2">
+                  <USkeleton class="h-8 w-20 rounded-full" />
+                  <USkeleton class="h-8 w-28 rounded-full" />
+                </div>
+              </div>
 
-      <RecentNotesCard
-        :loading="loading"
-        :logs="latestDashboardLogs"
-        @open-log="openLogViewer"
-      />
+              <div class="rounded-[1.5rem] border border-[var(--surface-line)] bg-white/70 p-4">
+                <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div class="space-y-2">
+                    <USkeleton class="h-4 w-24 rounded-full" />
+                    <USkeleton class="h-6 w-64 rounded-full" />
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <USkeleton class="h-5 w-10 rounded-full" />
+                    <USkeleton class="h-8 w-56 rounded-full" />
+                  </div>
+                </div>
+
+                <USkeleton class="mt-4 h-3 w-full rounded-full" />
+              </div>
+            </div>
+          </template>
+
+          <div class="quick-room-grid">
+            <div
+              v-for="index in 3"
+              :key="index"
+              class="rounded-[1.6rem] border border-[var(--surface-line)] bg-white/75 p-4"
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div class="space-y-2">
+                  <USkeleton class="h-4 w-8 rounded-full" />
+                  <USkeleton class="h-8 w-40 rounded-full" />
+                </div>
+                <USkeleton class="h-6 w-14 rounded-full" />
+              </div>
+
+              <div class="mt-4 space-y-2">
+                <USkeleton class="h-4 w-full rounded-full" />
+                <USkeleton class="h-4 w-4/5 rounded-full" />
+              </div>
+
+              <USkeleton class="mt-4 h-4 w-36 rounded-full" />
+
+              <div class="mt-5 flex items-center justify-between gap-3">
+                <USkeleton class="h-5 w-28 rounded-full" />
+                <USkeleton class="h-5 w-5 rounded-full" />
+              </div>
+            </div>
+          </div>
+        </UCard>
+
+        <UCard class="surface-card">
+          <template #header>
+            <div class="flex items-center justify-between gap-3">
+              <USkeleton class="h-7 w-40 rounded-full" />
+              <USkeleton class="h-7 w-24 rounded-full" />
+            </div>
+          </template>
+
+          <div class="space-y-3">
+            <div
+              v-for="index in 2"
+              :key="index"
+              class="rounded-[1.4rem] border border-[var(--surface-line)] bg-white/75 p-4"
+            >
+              <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div class="space-y-2">
+                  <USkeleton class="h-5 w-40 rounded-full" />
+                  <USkeleton class="h-4 w-48 rounded-full" />
+                </div>
+                <div class="flex gap-2">
+                  <USkeleton class="h-6 w-24 rounded-full" />
+                  <USkeleton class="h-6 w-20 rounded-full" />
+                </div>
+              </div>
+
+              <div class="mt-4 space-y-2">
+                <USkeleton class="h-4 w-full rounded-full" />
+                <USkeleton class="h-4 w-3/4 rounded-full" />
+              </div>
+            </div>
+          </div>
+        </UCard>
+      </template>
+
+      <template v-else>
+        <QuickAccessCard
+          :preferred-daypart="preferredDaypart"
+          :rooms="sortedRooms"
+          :completed-room-ids="completedRoomIds"
+          :latest-log-by-room="latestLogByRoom"
+          :next-open-room="nextOpenRoom"
+          :round-progress="roundProgress"
+          @open-room="openQuickProtocol"
+          @open-next="openNextOpenRoom"
+        />
+
+        <RecentNotesCard
+          :loading="loading"
+          :logs="latestDashboardLogs"
+          @open-log="openLogViewer"
+        />
+      </template>
     </section>
 
     <RoomEditorModal
