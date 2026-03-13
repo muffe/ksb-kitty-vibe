@@ -40,7 +40,7 @@ const modalOpen = computed({
 })
 
 const resetToken = ref(0)
-const mode = ref<'choice' | 'edit' | 'new'>('new')
+const mode = ref<'edit' | 'new'>('new')
 
 const hasSecondaryInfo = computed(() => {
   if (!props.room) {
@@ -59,7 +59,25 @@ const formInitialState = computed<Partial<RoomLogFormState> | null>(() => (
     : null
 ))
 
-const formSubmitLabel = computed(() => mode.value === 'edit' ? 'Änderungen speichern' : 'Protokoll speichern')
+const formSubmitLabel = computed(() => mode.value === 'edit' ? 'Änderungen speichern' : 'Zusätzlichen Eintrag speichern')
+const formHeading = computed(() => (
+  props.existingLog && mode.value === 'edit'
+    ? 'Vorhandenen Eintrag bearbeiten'
+    : 'Neuen Eintrag hinzufügen'
+))
+const formDescription = computed(() => (
+  props.existingLog && mode.value === 'edit'
+    ? 'Passe den vorhandenen Protokolleintrag für diese Tageszeit an.'
+    : 'Nur nutzen, wenn du ausnahmsweise einen zweiten Eintrag für diese Tageszeit brauchst.'
+))
+const existingLogMeta = computed(() => {
+  if (!props.existingLog) {
+    return ''
+  }
+
+  const employeeName = props.existingLog.employee_name?.trim() || 'Ohne Namen'
+  return `${employeeName} · ${formatDateTime(props.existingLog.created_at)}`
+})
 
 const feedingPlans = computed(() => {
   if (!props.room) {
@@ -102,13 +120,13 @@ watch(
   () => [props.open, props.room?.id, props.initialDaypart, props.existingLog?.id] as const,
   ([open]) => {
     if (open) {
-      mode.value = props.existingLog ? 'choice' : 'new'
+      mode.value = props.existingLog ? 'edit' : 'new'
       resetToken.value += 1
     }
   }
 )
 
-function setMode(nextMode: 'choice' | 'edit' | 'new') {
+function setMode(nextMode: 'edit' | 'new') {
   mode.value = nextMode
   resetToken.value += 1
 }
@@ -135,9 +153,9 @@ function submitLog(state: RoomLogFormState) {
     v-model:open="modalOpen"
     :dismissible="!submitting"
     :ui="{
-      content: 'w-[calc(100vw-1rem)] max-w-[1040px] rounded-[1.75rem] ring ring-default shadow-2xl',
-      header: 'p-4 sm:px-6 lg:px-8',
-      body: 'p-4 sm:p-6 lg:p-8',
+      content: 'w-[calc(100vw-1rem)] max-h-[calc(100svh-1rem)] overflow-hidden rounded-[1.5rem] ring ring-default shadow-2xl sm:max-h-[min(100svh-2rem,56rem)] sm:max-w-[1040px] sm:rounded-[1.75rem]',
+      header: 'p-3 sm:px-6 sm:py-4 lg:px-8',
+      body: 'overflow-y-auto p-3 sm:p-6 lg:p-8',
       footer: 'hidden'
     }"
   >
@@ -147,34 +165,23 @@ function submitLog(state: RoomLogFormState) {
         class="flex w-full items-start justify-between gap-4"
       >
         <div class="min-w-0 flex-1">
-          <div
-            class="grid w-full gap-y-2 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-x-4 md:items-center"
-          >
-            <div class="flex min-h-10 items-center text-left">
-              <h2 class="section-title text-2xl">
-                {{ roomDisplayName(room) }}
-              </h2>
-            </div>
+          <div class="space-y-2 text-left">
+            <h2 class="section-title break-words text-2xl">
+              {{ roomDisplayName(room) }}
+            </h2>
 
             <div
               v-if="room.warning_info"
-              class="flex justify-center md:col-start-2 md:self-center md:justify-self-center"
+              class="panel-shell panel-shell--muted flex max-w-full items-start gap-2 rounded-[1rem] px-3 py-2"
             >
-              <div class="inline-flex max-w-[18rem] items-center gap-2 rounded-full border border-amber-300/90 bg-amber-100 px-3 py-1 text-amber-950 shadow-sm">
-                <UIcon
-                  name="i-lucide-triangle-alert"
-                  class="text-sm text-amber-700"
-                />
-                <span class="text-xs font-semibold leading-5 sm:text-sm">
-                  {{ room.warning_info }}
-                </span>
-              </div>
+              <UIcon
+                name="i-lucide-triangle-alert"
+                class="mt-0.5 shrink-0 text-sm text-[var(--surface-muted)]"
+              />
+              <span class="min-w-0 break-words text-sm font-semibold leading-5 text-[var(--surface-ink)]">
+                {{ room.warning_info }}
+              </span>
             </div>
-
-            <div
-              aria-hidden="true"
-              class="hidden md:block"
-            />
           </div>
         </div>
 
@@ -182,6 +189,7 @@ function submitLog(state: RoomLogFormState) {
           color="neutral"
           variant="ghost"
           icon="i-lucide-x"
+          class="shrink-0 self-start"
           aria-label="Modal schließen"
           :disabled="submitting"
           @click="modalOpen = false"
@@ -192,82 +200,21 @@ function submitLog(state: RoomLogFormState) {
     <template #body>
       <div
         v-if="room"
-        class="space-y-3"
+        class="grid gap-5 md:grid-cols-[minmax(0,19rem)_minmax(0,1fr)] md:items-start"
       >
-        <div class="grid gap-5 lg:grid-cols-[minmax(16rem,19rem)_minmax(0,1fr)] lg:items-start">
-          <aside class="space-y-4">
-            <div class="rounded-[1.5rem] border border-teal-200 bg-teal-50/80 p-4">
-              <p class="section-kicker">
-                Jetzt wichtig
-              </p>
-              <h3 class="section-title mt-1 text-xl">
-                Futterplan {{ feedingPlans.current.label }}
-              </h3>
-
-              <dl class="mt-4 space-y-3">
-                <div
-                  v-for="entry in feedingPlans.current.entries"
-                  :key="entry.label"
-                  class="rounded-[1rem] bg-white/85 px-3 py-3"
-                >
-                  <dt class="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--surface-muted)]">
-                    {{ entry.label }}
-                  </dt>
-                  <dd class="mt-1 text-sm leading-6 text-[var(--surface-ink)]">
-                    {{ entry.value }}
-                  </dd>
-                </div>
-              </dl>
-            </div>
-
-            <div
-              v-if="hasSecondaryInfo"
-              class="rounded-[1.4rem] border border-[var(--surface-line)] bg-[var(--surface-panel)]"
-            >
-              <div class="px-4 py-3 text-sm font-semibold text-[var(--surface-ink)]">
-                Weitere Informationen
+        <div class="space-y-5">
+          <div class="panel-shell panel-shell--soft panel-block">
+            <div class="flex flex-col gap-4">
+              <div class="space-y-2">
+                <p class="section-kicker">
+                  Aktueller Plan
+                </p>
+                <h3 class="section-title break-words text-xl">
+                  Futterplan {{ feedingPlans.current.label }}
+                </h3>
               </div>
 
-              <div class="space-y-4 border-t border-[var(--surface-line)] px-4 py-4">
-                <div v-if="room.description">
-                  <p class="section-kicker">
-                    Zum Raum
-                  </p>
-                  <p class="mt-2 text-sm leading-6 text-[var(--surface-muted)]">
-                    {{ room.description }}
-                  </p>
-                </div>
-
-                <div>
-                  <p class="section-kicker">
-                    Andere Tageszeit
-                  </p>
-                  <h3 class="section-title mt-1 text-lg">
-                    {{ feedingPlans.alternate.label }}
-                  </h3>
-
-                  <dl class="mt-3 space-y-2">
-                    <div
-                      v-for="entry in feedingPlans.alternate.entries"
-                      :key="entry.label"
-                      class="grid gap-1 text-sm leading-6 sm:grid-cols-[7.5rem_minmax(0,1fr)]"
-                    >
-                      <dt class="font-semibold text-[var(--surface-ink)]">
-                        {{ entry.label }}
-                      </dt>
-                      <dd class="text-[var(--surface-muted)]">
-                        {{ entry.value }}
-                      </dd>
-                    </div>
-                  </dl>
-                </div>
-              </div>
-            </div>
-          </aside>
-
-          <div class="rounded-[1.75rem] border border-[var(--surface-line)] bg-white/92 p-5 shadow-sm lg:p-6">
-            <div class="mb-5 border-b border-[var(--surface-line)] pb-4">
-              <div class="mb-3 flex flex-wrap items-center justify-end gap-2">
+              <div class="flex flex-wrap items-start gap-2 sm:items-center">
                 <UBadge
                   color="primary"
                   variant="soft"
@@ -276,91 +223,143 @@ function submitLog(state: RoomLogFormState) {
                 <UBadge
                   :color="completed ? 'success' : 'warning'"
                   variant="subtle"
-                  :label="completed ? `${daypartLabel(initialDaypart)} bereits protokolliert` : `${daypartLabel(initialDaypart)} noch offen`"
+                  :label="completed ? `${daypartLabel(initialDaypart)} erledigt` : `${daypartLabel(initialDaypart)} offen`"
                 />
               </div>
+            </div>
 
+            <dl class="mt-4 space-y-3">
+              <div
+                v-for="entry in feedingPlans.current.entries"
+                :key="entry.label"
+                class="info-list-card"
+              >
+                <dt class="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--surface-muted)]">
+                  {{ entry.label }}
+                </dt>
+                <dd class="mt-1 break-words text-sm leading-6 text-[var(--surface-ink)]">
+                  {{ entry.value }}
+                </dd>
+              </div>
+            </dl>
+          </div>
+
+          <details
+            v-if="hasSecondaryInfo"
+            :key="resetToken"
+            class="panel-shell panel-shell--muted rounded-[1.2rem]"
+          >
+            <summary class="cursor-pointer list-none rounded-[1.2rem] px-4 py-3 text-sm font-semibold text-[var(--surface-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(21,167,159,0.52)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-bg)]">
+              <span class="flex items-center justify-between gap-3">
+                <span>Mehr zum Raum</span>
+                <UIcon
+                  name="i-lucide-chevron-down"
+                  class="shrink-0 text-base text-[var(--surface-muted)]"
+                />
+              </span>
+            </summary>
+
+            <div class="space-y-4 border-t border-[var(--surface-line)] px-4 py-4">
+              <div v-if="room.description">
+                <p class="section-kicker">
+                  Hinweis
+                </p>
+                <p class="mt-2 break-words text-sm leading-6 text-[var(--surface-muted)]">
+                  {{ room.description }}
+                </p>
+              </div>
+
+              <div>
+                <p class="section-kicker">
+                  Anderer Plan
+                </p>
+                <h3 class="section-title mt-1 text-lg">
+                  {{ feedingPlans.alternate.label }}
+                </h3>
+
+                <dl class="mt-3 space-y-3">
+                  <div
+                    v-for="entry in feedingPlans.alternate.entries"
+                    :key="entry.label"
+                    class="info-list-card grid gap-1 text-sm leading-6"
+                  >
+                    <dt class="font-semibold text-[var(--surface-ink)]">
+                      {{ entry.label }}
+                    </dt>
+                    <dd class="break-words text-[var(--surface-muted)]">
+                      {{ entry.value }}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel-shell panel-shell--solid panel-block-lg min-w-0 lg:p-6">
+          <div class="mb-5 flex flex-col gap-3 border-b border-[var(--surface-line)] pb-4 sm:flex-row sm:items-start sm:justify-between">
+            <div class="min-w-0 space-y-2">
               <p class="section-kicker">
-                Rundgang
+                Protokoll
               </p>
-              <h3 class="section-title mt-1 text-xl">
-                Protokoll erfassen
+              <h3 class="section-title break-words text-xl">
+                {{ formHeading }}
               </h3>
               <p
-                v-if="mode === 'edit' && existingLog"
-                class="mt-2 text-sm leading-6 text-[var(--surface-muted)]"
+                v-if="formDescription"
+                class="break-words text-sm leading-6 text-[var(--surface-muted)]"
               >
-                Vorhandenes Protokoll von {{ existingLog.employee_name }} vom {{ formatDateTime(existingLog.created_at) }} bearbeiten.
+                {{ formDescription }}
               </p>
               <p
-                v-else-if="mode === 'new' && existingLog"
-                class="mt-2 text-sm leading-6 text-[var(--surface-muted)]"
+                v-if="existingLogMeta && mode === 'edit'"
+                class="break-words text-sm leading-6 text-[var(--surface-muted)]"
               >
-                Es gibt bereits ein Protokoll für {{ daypartLabel(initialDaypart) }}. Sie legen trotzdem einen neuen Eintrag an.
+                {{ existingLogMeta }}
               </p>
             </div>
 
             <div
-              v-if="mode === 'choice' && existingLog"
-              class="space-y-4"
+              v-if="existingLog"
+              class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end"
             >
-              <div class="rounded-[1.35rem] border border-amber-200 bg-amber-50 px-4 py-4 text-sm leading-6 text-amber-900">
-                Für heute und {{ daypartLabel(initialDaypart) }} gibt es bereits ein Protokoll von
-                <span class="font-semibold">{{ existingLog.employee_name }}</span>
-                vom {{ formatDateTime(existingLog.created_at) }}.
-              </div>
-
-              <div class="grid gap-3">
-                <button
-                  type="button"
-                  class="rounded-[1.35rem] border border-[var(--surface-line)] bg-white px-4 py-4 text-left transition hover:border-emerald-300 hover:shadow-sm"
-                  @click="setMode('edit')"
-                >
-                  <span class="block text-base font-semibold text-[var(--surface-ink)]">Altes Protokoll bearbeiten</span>
-                  <span class="mt-1 block text-sm leading-6 text-[var(--surface-muted)]">
-                    Den vorhandenen Eintrag öffnen und die Angaben anpassen.
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  class="rounded-[1.35rem] border border-[var(--surface-line)] bg-white px-4 py-4 text-left transition hover:border-teal-300 hover:shadow-sm"
-                  @click="setMode('new')"
-                >
-                  <span class="block text-base font-semibold text-[var(--surface-ink)]">Trotzdem neues Protokoll erstellen</span>
-                  <span class="mt-1 block text-sm leading-6 text-[var(--surface-muted)]">
-                    Einen zusätzlichen Eintrag für denselben Tag und dieselbe Tageszeit erfassen.
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            <template v-else>
-              <div
-                v-if="existingLog"
-                class="mb-4 flex justify-end"
-              >
-                <UButton
-                  color="neutral"
-                  variant="outline"
-                  size="sm"
-                  label="Auswahl anzeigen"
-                  @click="setMode('choice')"
-                />
-              </div>
-
-              <RoomLogForm
-                :submitting="submitting"
-                :reset-token="resetToken"
-                :initial-daypart="initialDaypart"
-                :initial-state="formInitialState"
-                :show-cancel="true"
-                :submit-label="formSubmitLabel"
-                @cancel="modalOpen = false"
-                @submit-log="submitLog"
+              <UButton
+                v-if="mode === 'new'"
+                color="neutral"
+                variant="outline"
+                size="sm"
+                class="w-full justify-center sm:w-auto"
+                label="Vorhandenen Eintrag öffnen"
+                :ui="{
+                  base: 'focus-visible:ring-2 focus-visible:ring-[rgba(21,167,159,0.52)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-bg)]'
+                }"
+                @click="setMode('edit')"
               />
-            </template>
+              <UButton
+                v-else
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                class="w-full justify-center sm:w-auto"
+                label="Zusätzlichen Eintrag anlegen"
+                :ui="{
+                  base: 'focus-visible:ring-2 focus-visible:ring-[rgba(21,167,159,0.52)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-bg)]'
+                }"
+                @click="setMode('new')"
+              />
+            </div>
           </div>
+
+          <RoomLogForm
+            :submitting="submitting"
+            :reset-token="resetToken"
+            :initial-daypart="initialDaypart"
+            :initial-state="formInitialState"
+            :show-cancel="true"
+            :submit-label="formSubmitLabel"
+            @cancel="modalOpen = false"
+            @submit-log="submitLog"
+          />
         </div>
       </div>
     </template>

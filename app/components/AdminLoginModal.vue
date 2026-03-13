@@ -4,7 +4,7 @@ import { readableInputUi } from '~/utils/ui-presets'
 const open = defineModel<boolean>('open', { required: true })
 const password = defineModel<string>('password', { required: true })
 
-defineProps<{
+const props = defineProps<{
   pending: boolean
   error: string
 }>()
@@ -12,6 +12,38 @@ defineProps<{
 const emit = defineEmits<{
   submit: []
 }>()
+
+const formElement = ref<HTMLFormElement | null>(null)
+const localError = ref('')
+const passwordInputId = useId()
+const passwordErrorId = useId()
+
+const visibleError = computed(() => localError.value || props.error)
+
+watch(open, (value) => {
+  if (!value) {
+    localError.value = ''
+  }
+})
+
+watch(() => props.error, (value) => {
+  if (value) {
+    localError.value = ''
+  }
+})
+
+function submit() {
+  if (!password.value.trim()) {
+    localError.value = 'Bitte ein Passwort eingeben.'
+    nextTick(() => {
+      formElement.value?.querySelector<HTMLInputElement>(`#${passwordInputId}`)?.focus()
+    })
+    return
+  }
+
+  localError.value = ''
+  emit('submit')
+}
 </script>
 
 <template>
@@ -42,25 +74,38 @@ const emit = defineEmits<{
     </template>
 
     <template #body>
-      <div class="space-y-4">
+      <form
+        ref="formElement"
+        class="space-y-4"
+        novalidate
+        @submit.prevent="submit"
+      >
         <div
-          v-if="error"
+          v-if="visibleError"
+          :id="passwordErrorId"
           class="rounded-2xl border border-red-300/80 bg-red-50 px-4 py-3 text-sm text-red-700"
+          role="alert"
+          aria-live="assertive"
         >
-          {{ error }}
+          {{ visibleError }}
         </div>
 
         <label class="field-block">
           <span class="field-label">Passwort</span>
           <UInput
+            :id="passwordInputId"
             v-model="password"
+            autocomplete="current-password"
+            maxlength="128"
             type="password"
             placeholder="Passwort"
+            required
+            :aria-describedby="visibleError ? passwordErrorId : undefined"
+            :aria-invalid="visibleError ? 'true' : 'false'"
             :ui="readableInputUi"
-            @keydown.enter="emit('submit')"
           />
         </label>
-      </div>
+      </form>
     </template>
 
     <template #footer>
@@ -76,7 +121,7 @@ const emit = defineEmits<{
           color="primary"
           :loading="pending"
           label="Anmelden"
-          @click="emit('submit')"
+          @click="submit"
         />
       </div>
     </template>

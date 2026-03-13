@@ -17,7 +17,6 @@ import {
 
 const supabase = useSupabase()
 const adminUser = useAdminUser()
-const authReady = useAdminAuthReady()
 
 const rooms = ref<Room[]>([])
 const recentLogs = ref<RoomLogWithRoom[]>([])
@@ -141,14 +140,6 @@ const daypartCompletion = computed(() => {
     eveningCount: eveningRooms.size
   }
 })
-
-function formatRoomCompletion(count: number) {
-  if (!rooms.value.length) {
-    return '0%'
-  }
-
-  return `${Math.round((count / rooms.value.length) * 100)}%`
-}
 
 async function fetchDashboardData() {
   const [roomsResult, logsResult] = await Promise.all([
@@ -289,23 +280,32 @@ async function saveRoom(state: RoomFormState) {
 
 async function normalizeRoomOrder(orderOverride?: Room[]) {
   const orderedRooms = orderOverride ?? [...sortedRooms.value]
+  const changedRooms = orderedRooms
+    .map((room, index) => ({
+      id: room.id,
+      expectedOrder: index + 1,
+      currentOrder: room.sort_order
+    }))
+    .filter(room => room.currentOrder !== room.expectedOrder)
 
-  for (const [index, room] of orderedRooms.entries()) {
-    const expectedOrder = index + 1
+  if (!changedRooms.length) {
+    return
+  }
 
-    if (room.sort_order === expectedOrder) {
-      continue
-    }
+  const results = await Promise.all(
+    changedRooms.map(room => (
+      supabase
+        .from('rooms')
+        .update({ sort_order: room.expectedOrder })
+        .eq('id', room.id)
+    ))
+  )
 
-    const { error } = await supabase
-      .from('rooms')
-      .update({ sort_order: expectedOrder })
-      .eq('id', room.id)
+  const failedUpdate = results.find(result => result.error)
 
-    if (error) {
-      setNotice('error', 'Die Reihenfolge konnte nicht aktualisiert werden.', error.message)
-      return
-    }
+  if (failedUpdate?.error) {
+    setNotice('error', 'Die Reihenfolge konnte nicht aktualisiert werden.', failedUpdate.error.message)
+    return
   }
 
   await refreshAll()
@@ -461,10 +461,10 @@ onMounted(() => {
 
       <DashboardHeroCard
         :is-admin="showHydratedAdmin"
+        :preferred-daypart="preferredDaypart"
         :rooms-count="rooms.length"
-        :morning-completion="formatRoomCompletion(daypartCompletion.morningCount)"
+        :completed-count="roundProgress.completed"
         :morning-count="daypartCompletion.morningCount"
-        :evening-completion="formatRoomCompletion(daypartCompletion.eveningCount)"
         :evening-count="daypartCompletion.eveningCount"
         @create-room="openCreateRoomModal"
         @sign-out="signOutAdmin"
@@ -475,6 +475,8 @@ onMounted(() => {
       v-if="notice"
       class="status-banner"
       :class="`status-banner--${notice.tone}`"
+      :role="notice.tone === 'error' ? 'alert' : 'status'"
+      :aria-live="notice.tone === 'error' ? 'assertive' : 'polite'"
     >
       <div>
         <p class="text-sm font-semibold">
@@ -496,121 +498,93 @@ onMounted(() => {
 
     <section
       id="schneller-einstieg"
-      class="content-grid"
+      class="dashboard-flow space-y-8"
     >
       <template v-if="loading">
-        <UCard class="surface-card">
-          <template #header>
-            <div class="space-y-4">
+        <section class="space-y-5">
+          <div class="flex items-end justify-between gap-3">
+            <div class="space-y-2">
+              <USkeleton class="h-4 w-24 rounded-full" />
+              <USkeleton class="h-10 w-72 rounded-full" />
+              <USkeleton class="h-5 w-56 rounded-full" />
+            </div>
+            <div class="flex gap-2">
+              <USkeleton class="h-10 w-52 rounded-full" />
+              <USkeleton class="h-8 w-24 rounded-full" />
+            </div>
+          </div>
+
+          <USkeleton class="h-3 w-full rounded-full" />
+
+          <div class="space-y-2">
+            <div
+              v-for="index in 5"
+              :key="index"
+              class="panel-shell panel-shell--soft rounded-[1.2rem] px-4 py-3"
+            >
               <div class="flex items-center justify-between gap-3">
-                <div class="space-y-2">
-                  <USkeleton class="h-7 w-44 rounded-full" />
-                  <USkeleton class="h-5 w-36 rounded-full" />
-                </div>
-                <div class="flex gap-2">
-                  <USkeleton class="h-8 w-20 rounded-full" />
-                  <USkeleton class="h-8 w-28 rounded-full" />
-                </div>
-              </div>
-
-              <div class="rounded-[1.5rem] border border-[var(--surface-line)] bg-white/70 p-4">
-                <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div class="flex min-w-0 items-center gap-4">
+                  <USkeleton class="h-5 w-8 rounded-full" />
                   <div class="space-y-2">
-                    <USkeleton class="h-4 w-24 rounded-full" />
-                    <USkeleton class="h-6 w-64 rounded-full" />
-                  </div>
-                  <div class="flex items-center gap-3">
-                    <USkeleton class="h-5 w-10 rounded-full" />
-                    <USkeleton class="h-8 w-56 rounded-full" />
+                    <USkeleton class="h-5 w-48 rounded-full" />
+                    <USkeleton class="h-4 w-36 rounded-full" />
                   </div>
                 </div>
-
-                <USkeleton class="mt-4 h-3 w-full rounded-full" />
+                <USkeleton class="h-6 w-16 rounded-full" />
               </div>
             </div>
-          </template>
+          </div>
+        </section>
 
-          <div class="quick-room-grid">
+        <section class="space-y-3">
+          <div class="flex items-center justify-between gap-3">
+            <div class="space-y-2">
+              <USkeleton class="h-4 w-18 rounded-full" />
+              <USkeleton class="h-7 w-40 rounded-full" />
+            </div>
+            <USkeleton class="h-7 w-24 rounded-full" />
+          </div>
+
+          <div class="space-y-2">
             <div
               v-for="index in 3"
               :key="index"
-              class="rounded-[1.6rem] border border-[var(--surface-line)] bg-white/75 p-4"
+              class="panel-shell panel-shell--soft rounded-[1.2rem] px-4 py-3"
             >
-              <div class="flex items-start justify-between gap-3">
-                <div class="space-y-2">
-                  <USkeleton class="h-4 w-8 rounded-full" />
-                  <USkeleton class="h-8 w-40 rounded-full" />
-                </div>
-                <USkeleton class="h-6 w-14 rounded-full" />
-              </div>
-
-              <div class="mt-4 space-y-2">
-                <USkeleton class="h-4 w-full rounded-full" />
-                <USkeleton class="h-4 w-4/5 rounded-full" />
-              </div>
-
-              <USkeleton class="mt-4 h-4 w-36 rounded-full" />
-
-              <div class="mt-5 flex items-center justify-between gap-3">
-                <USkeleton class="h-5 w-28 rounded-full" />
-                <USkeleton class="h-5 w-5 rounded-full" />
-              </div>
-            </div>
-          </div>
-        </UCard>
-
-        <UCard class="surface-card">
-          <template #header>
-            <div class="flex items-center justify-between gap-3">
-              <USkeleton class="h-7 w-40 rounded-full" />
-              <USkeleton class="h-7 w-24 rounded-full" />
-            </div>
-          </template>
-
-          <div class="space-y-3">
-            <div
-              v-for="index in 2"
-              :key="index"
-              class="rounded-[1.4rem] border border-[var(--surface-line)] bg-white/75 p-4"
-            >
-              <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                <div class="space-y-2">
+              <div class="space-y-2">
+                <div class="flex items-center justify-between gap-3">
                   <USkeleton class="h-5 w-40 rounded-full" />
-                  <USkeleton class="h-4 w-48 rounded-full" />
+                  <USkeleton class="h-4 w-28 rounded-full" />
                 </div>
-                <div class="flex gap-2">
-                  <USkeleton class="h-6 w-24 rounded-full" />
-                  <USkeleton class="h-6 w-20 rounded-full" />
-                </div>
-              </div>
-
-              <div class="mt-4 space-y-2">
                 <USkeleton class="h-4 w-full rounded-full" />
-                <USkeleton class="h-4 w-3/4 rounded-full" />
               </div>
             </div>
           </div>
-        </UCard>
+        </section>
       </template>
 
       <template v-else>
-        <QuickAccessCard
-          :preferred-daypart="preferredDaypart"
-          :rooms="sortedRooms"
-          :has-recent-order-change="hasRecentOrderChange"
-          :completed-room-ids="completedRoomIds"
-          :latest-log-by-room="latestLogByRoom"
-          :next-open-room="nextOpenRoom"
-          :round-progress="roundProgress"
-          @open-room="openQuickProtocol"
-          @open-next="openNextOpenRoom"
-        />
+        <div class="dashboard-flow-grid">
+          <QuickAccessCard
+            :preferred-daypart="preferredDaypart"
+            :rooms="sortedRooms"
+            :has-recent-order-change="hasRecentOrderChange"
+            :completed-room-ids="completedRoomIds"
+            :latest-log-by-room="latestLogByRoom"
+            :next-open-room="nextOpenRoom"
+            :round-progress="roundProgress"
+            @open-room="openQuickProtocol"
+            @open-next="openNextOpenRoom"
+          />
 
-        <RecentNotesCard
-          :loading="loading"
-          :logs="latestDashboardLogs"
-          @open-log="openLogViewer"
-        />
+          <div class="dashboard-support-rail">
+            <RecentNotesCard
+              :loading="loading"
+              :logs="latestDashboardLogs"
+              @open-log="openLogViewer"
+            />
+          </div>
+        </div>
       </template>
     </section>
 

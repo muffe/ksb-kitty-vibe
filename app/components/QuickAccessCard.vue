@@ -7,7 +7,12 @@ import {
   type RoomLogWithRoom
 } from '~/utils/cat-shelter'
 
-defineProps<{
+const emit = defineEmits<{
+  openRoom: [room: Room]
+  openNext: []
+}>()
+
+const props = defineProps<{
   preferredDaypart: Daypart
   rooms: Room[]
   hasRecentOrderChange: boolean
@@ -21,168 +26,204 @@ defineProps<{
   }
 }>()
 
-const emit = defineEmits<{
-  openRoom: [room: Room]
-  openNext: []
-}>()
+const openRooms = computed(() => props.rooms.filter(room => !props.completedRoomIds.has(room.id)))
+const completedRooms = computed(() => props.rooms.filter(room => props.completedRoomIds.has(room.id)))
+const queueRooms = computed(() => openRooms.value.filter(room => room.id !== props.nextOpenRoom?.id))
 </script>
 
 <template>
-  <UCard class="surface-card">
-    <template #header>
-      <div class="space-y-4">
-        <div class="flex items-center justify-between gap-3">
-          <div>
-            <h2 class="section-title">
-              Schneller Einstieg
-            </h2>
-            <p class="mt-1 text-sm text-[var(--surface-muted)]">
-              Aktuell empfohlen: {{ daypartLabel(preferredDaypart) }}
-            </p>
-          </div>
-          <div class="flex flex-wrap items-center gap-2">
-            <UBadge
-              color="primary"
-              variant="subtle"
-              :label="`${rooms.length} Räume`"
-            />
-            <UButton
-              color="neutral"
-              variant="outline"
-              size="sm"
-              icon="i-lucide-panels-top-left"
-              label="Raumdetails"
-              to="/raeume"
-            />
-          </div>
-        </div>
-
-        <div class="quick-progress-panel">
-          <UAlert
-            v-if="hasRecentOrderChange"
-            color="warning"
-            variant="outline"
-            icon="i-lucide-triangle-alert"
-            title="Reihenfolge kürzlich geändert"
-            description="Bitte die aktuelle Raumreihenfolge bewusst beachten und den Rundgang strikt nach der Nummerierung abarbeiten."
-            :ui="{
-              root: 'mb-4 rounded-[1.2rem] border-amber-300 bg-amber-50 text-amber-950',
-              icon: 'text-amber-700',
-              title: 'text-sm font-semibold text-amber-950',
-              description: 'text-sm leading-6 text-amber-900'
-            }"
-          />
-
-          <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p class="section-kicker">
-                Rundgang
-              </p>
-              <p class="mt-1 text-base font-semibold text-[var(--surface-ink)]">
-                {{ roundProgress.completed }} von {{ roundProgress.total }} Räumen für {{ daypartLabel(preferredDaypart) }} erledigt
-              </p>
-            </div>
-
-            <div class="flex flex-wrap items-center gap-3">
-              <span class="text-sm font-semibold text-[var(--surface-ink)]">
-                {{ roundProgress.percent }}%
-              </span>
-              <UButton
-                v-if="nextOpenRoom"
-                color="primary"
-                size="sm"
-                icon="i-lucide-arrow-right"
-                :label="`Nächster offener Raum: ${roomDisplayName(nextOpenRoom)}`"
-                @click="emit('openNext')"
-              />
-              <UBadge
-                v-else
-                color="success"
-                variant="subtle"
-                label="Alle Räume erledigt"
-              />
-            </div>
-          </div>
-
-          <div class="quick-progress-bar">
-            <div
-              class="quick-progress-bar__fill"
-              :style="{ width: `${roundProgress.percent}%` }"
-            />
-          </div>
-        </div>
+  <section class="dashboard-primary space-y-5">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div class="space-y-2">
+        <p class="section-kicker">
+          Rundgang
+        </p>
+        <h2 class="section-title text-2xl">
+          {{ props.nextOpenRoom ? 'Jetzt den markierten Raum dokumentieren' : 'Rundgang abgeschlossen' }}
+        </h2>
+        <p class="text-sm leading-6 text-[var(--surface-muted)]">
+          {{ props.nextOpenRoom
+            ? `${daypartLabel(props.preferredDaypart)} ist aktiv. Unten ist genau ein Startpunkt markiert.`
+            : `Alle Räume für ${daypartLabel(props.preferredDaypart)} sind protokolliert.` }}
+        </p>
       </div>
-    </template>
+
+      <div class="flex flex-wrap items-center gap-3">
+        <span class="text-sm font-semibold text-[var(--surface-ink)]">
+          {{ props.roundProgress.completed }}/{{ props.roundProgress.total }}
+        </span>
+        <UBadge
+          :color="props.nextOpenRoom ? 'primary' : 'success'"
+          variant="subtle"
+          :label="props.nextOpenRoom ? 'Start hier' : 'Fertig'"
+        />
+      </div>
+    </div>
 
     <div
-      v-if="!rooms.length"
-      class="rounded-2xl border border-dashed border-[var(--surface-line)] px-4 py-5 text-sm text-[var(--surface-muted)]"
+      v-if="props.hasRecentOrderChange"
+      class="dashboard-queue-notice"
+    >
+      Reihenfolge wurde geändert. Bitte den Rundgang strikt nach der Nummerierung fortsetzen.
+    </div>
+
+    <div
+      v-if="!props.rooms.length"
+      class="empty-state"
     >
       Es wurden noch keine Räume angelegt.
     </div>
 
     <div
       v-else
-      class="quick-room-grid"
+      class="dashboard-primary__content"
     >
-      <button
-        v-for="room in rooms"
-        :key="room.id"
-        type="button"
-        class="quick-room-card"
-        :class="completedRoomIds.has(room.id) ? 'quick-room-card--done' : 'quick-room-card--open'"
-        @click="emit('openRoom', room)"
-      >
-        <div class="flex items-start justify-between gap-3">
-          <div>
-            <p class="quick-room-order">
-              {{ room.sort_order }}.
+      <div class="dashboard-next-card">
+        <div class="dashboard-next-card__header">
+          <div class="space-y-2">
+            <p class="section-kicker">
+              Nächster Raum
             </p>
-            <h3 class="quick-room-title">
-              {{ roomDisplayName(room) }}
+            <h3 class="section-title text-[clamp(1.7rem,2.2vw,2.4rem)]">
+              {{ props.nextOpenRoom ? roomDisplayName(props.nextOpenRoom) : 'Alle Räume erledigt' }}
             </h3>
+            <p class="text-sm leading-6 text-[var(--surface-muted)]">
+              {{ props.nextOpenRoom
+                ? props.nextOpenRoom.warning_info?.trim() || props.latestLogByRoom.get(props.nextOpenRoom.id)?.employee_name || 'Ohne Zusatzinfo'
+                : 'Für diese Tageszeit ist kein weiterer Eintrag nötig.' }}
+            </p>
           </div>
 
-          <div class="flex flex-wrap justify-end gap-2">
-            <UBadge
-              :color="completedRoomIds.has(room.id) ? 'success' : 'primary'"
-              variant="subtle"
-              :label="completedRoomIds.has(room.id) ? 'Erledigt' : 'Offen'"
-            />
-            <UBadge
-              v-if="room.warning_info?.trim()"
-              color="warning"
-              variant="subtle"
-              label="Hinweis"
-            />
+          <div class="dashboard-next-card__status">
+            <div class="dashboard-progress-chip">
+              {{ props.roundProgress.completed }}/{{ props.roundProgress.total }}
+            </div>
+            <div class="quick-progress-bar">
+              <div
+                class="quick-progress-bar__fill"
+                :style="{ '--progress-scale': `${props.roundProgress.percent / 100}` }"
+              />
+            </div>
           </div>
         </div>
 
-        <p class="quick-room-copy">
-          {{ completedRoomIds.has(room.id)
-            ? `${daypartLabel(preferredDaypart)} wurde heute bereits protokolliert.`
-            : room.warning_info?.trim() || room.description?.trim() || 'Protokoll direkt aus dieser Übersicht erfassen.' }}
-        </p>
-
-        <div class="mt-3 flex flex-wrap gap-3 text-sm text-[var(--surface-muted)]">
-          <span v-if="latestLogByRoom.get(room.id)">
-            Letzter Mitarbeiter: <span class="font-semibold text-[var(--surface-ink)]">{{ latestLogByRoom.get(room.id)?.employee_name }}</span>
-          </span>
-          <span v-else>
-            Noch kein Protokoll vorhanden
-          </span>
-        </div>
-
-        <div class="mt-4 flex items-center justify-between gap-3">
-          <span class="text-sm font-semibold text-[var(--surface-ink)]">
-            {{ completedRoomIds.has(room.id) ? 'Erneut öffnen' : 'Protokoll öffnen' }}
-          </span>
-          <UIcon
-            name="i-lucide-arrow-down-right"
-            class="text-lg text-[var(--surface-muted)]"
+        <div class="dashboard-next-card__actions">
+          <UButton
+            v-if="props.nextOpenRoom"
+            color="primary"
+            size="lg"
+            icon="i-lucide-arrow-right"
+            :label="`Jetzt ${roomDisplayName(props.nextOpenRoom)} öffnen`"
+            @click="emit('openNext')"
+          />
+          <UBadge
+            v-else
+            color="success"
+            variant="subtle"
+            label="Rundgang fertig"
+          />
+          <UButton
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            label="Alle Raumdetails"
+            to="/raeume"
           />
         </div>
-      </button>
+      </div>
+
+      <div class="dashboard-queue">
+        <div class="dashboard-queue__header">
+          <div>
+            <p class="section-kicker">
+              Arbeitsschritt 2
+            </p>
+            <h3 class="section-title text-xl">
+              Danach folgen diese Räume
+            </h3>
+          </div>
+          <UBadge
+            color="neutral"
+            variant="subtle"
+            :label="`${queueRooms.length} danach`"
+          />
+        </div>
+
+        <div class="space-y-2">
+          <button
+            v-for="room in queueRooms"
+            :key="room.id"
+            type="button"
+            class="quick-room-row quick-room-row--open"
+            @click="emit('openRoom', room)"
+          >
+            <div class="flex min-w-0 items-center gap-4">
+              <span class="quick-room-order">
+                {{ room.sort_order }}.
+              </span>
+              <div class="min-w-0">
+                <p class="truncate text-base font-semibold text-[var(--surface-ink)]">
+                  {{ roomDisplayName(room) }}
+                </p>
+                <p class="truncate text-sm text-[var(--surface-muted)]">
+                  {{ props.latestLogByRoom.get(room.id)?.employee_name || room.warning_info?.trim() || room.description?.trim() || 'Ohne Zusatzinfo' }}
+                </p>
+              </div>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-end gap-2">
+              <UBadge
+                color="primary"
+                variant="subtle"
+                label="Offen"
+              />
+              <UBadge
+                v-if="room.warning_info?.trim()"
+                color="warning"
+                variant="subtle"
+                label="Hinweis"
+              />
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <div
+        v-if="completedRooms.length"
+        class="dashboard-finished-strip"
+      >
+        <div class="dashboard-finished-strip__header">
+          <p class="section-kicker">
+            Bereits erledigt
+          </p>
+          <UBadge
+            color="success"
+            variant="subtle"
+            :label="`${completedRooms.length} abgeschlossen`"
+          />
+        </div>
+
+        <div class="dashboard-finished-strip__list">
+          <button
+            v-for="room in completedRooms"
+            :key="room.id"
+            type="button"
+            class="quick-room-chip"
+            @click="emit('openRoom', room)"
+          >
+            <span class="quick-room-chip__index">{{ room.sort_order }}</span>
+            <div class="min-w-0">
+              <p class="truncate text-sm font-semibold text-[var(--surface-ink)]">
+                {{ roomDisplayName(room) }}
+              </p>
+            </div>
+            <UIcon
+              name="i-lucide-check"
+              class="shrink-0 text-sm text-emerald-700"
+            />
+          </button>
+        </div>
+      </div>
     </div>
-  </UCard>
+  </section>
 </template>

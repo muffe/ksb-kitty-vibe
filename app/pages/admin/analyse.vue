@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import {
-  daypartLabel,
   formatDateTime,
   inferredCurrentDaypart,
   roomDisplayName,
@@ -232,6 +231,8 @@ onMounted(() => {
     <div
       v-if="notice"
       class="status-banner status-banner--error"
+      :role="notice.tone === 'error' ? 'alert' : 'status'"
+      :aria-live="notice.tone === 'error' ? 'assertive' : 'polite'"
     >
       <p class="text-sm font-semibold">
         {{ notice.text }}
@@ -257,7 +258,7 @@ onMounted(() => {
         v-if="loading"
         class="surface-card"
       >
-        <div class="rounded-2xl border border-dashed border-[var(--surface-line)] px-4 py-8 text-sm text-[var(--surface-muted)]">
+        <div class="empty-state">
           Analysedaten werden geladen ...
         </div>
       </UCard>
@@ -273,9 +274,21 @@ onMounted(() => {
                   </h2>
                 </div>
                 <div class="flex flex-wrap gap-2">
-                  <UBadge color="error" variant="subtle" :label="`${riskCounts.red} Rot`" />
-                  <UBadge color="warning" variant="subtle" :label="`${riskCounts.yellow} Gelb`" />
-                  <UBadge color="success" variant="subtle" :label="`${riskCounts.green} Grün`" />
+                  <UBadge
+                    color="error"
+                    variant="subtle"
+                    :label="`${riskCounts.red} Rot`"
+                  />
+                  <UBadge
+                    color="warning"
+                    variant="subtle"
+                    :label="`${riskCounts.yellow} Gelb`"
+                  />
+                  <UBadge
+                    color="success"
+                    variant="subtle"
+                    :label="`${riskCounts.green} Grün`"
+                  />
                 </div>
               </div>
             </template>
@@ -287,9 +300,9 @@ onMounted(() => {
                 :delay-duration="0"
                 arrow
               >
-                <button
-                  type="button"
-                  class="flex min-h-18 items-center gap-2 rounded-[1.1rem] border border-[var(--surface-line)] bg-white/86 px-3 py-2 text-left transition hover:border-[var(--ui-border-accented)] hover:bg-white"
+                <div
+                  class="analysis-summary-card panel-shell panel-shell--soft flex items-center gap-2 rounded-[1.1rem] px-3 py-2 text-left transition hover:border-[var(--ui-border-accented)] hover:bg-white"
+                  :title="`${roomDisplayName(summary.room)}: ${summary.issues.length ? `${summary.issues.length} Hinweis${summary.issues.length > 1 ? 'e' : ''}` : 'Keine Auffälligkeiten'}`"
                 >
                   <span
                     class="size-2.5 shrink-0 rounded-full ring-3"
@@ -304,7 +317,7 @@ onMounted(() => {
                       {{ summary.issues.length ? `${summary.issues.length} Hinweis${summary.issues.length > 1 ? 'e' : ''}` : 'OK' }}
                     </p>
                   </div>
-                </button>
+                </div>
 
                 <template #content>
                   <div class="max-w-xs space-y-2">
@@ -359,7 +372,7 @@ onMounted(() => {
 
               <div
                 v-if="!earlyWarnings.length"
-                class="rounded-2xl border border-dashed border-[var(--surface-line)] px-4 py-5 text-sm text-[var(--surface-muted)]"
+                class="empty-state"
               >
                 Aktuell gibt es keine automatischen Warnungen.
               </div>
@@ -371,7 +384,7 @@ onMounted(() => {
                 <div
                   v-for="entry in earlyWarnings"
                   :key="`${entry.room.id}-${entry.title}-${entry.detectedAt}`"
-                  class="rounded-[1.35rem] border border-[var(--surface-line)] bg-white/86 p-4"
+                  class="info-list-card"
                 >
                   <div class="flex flex-wrap items-start justify-between gap-3">
                     <div>
@@ -422,7 +435,7 @@ onMounted(() => {
 
               <div
                 v-if="!analysis.editedLogs.length"
-                class="rounded-2xl border border-dashed border-[var(--surface-line)] px-4 py-5 text-sm text-[var(--surface-muted)]"
+                class="empty-state"
               >
                 Keine nachträglich bearbeiteten Protokolle.
               </div>
@@ -434,7 +447,7 @@ onMounted(() => {
                 <div
                   v-for="log in analysis.editedLogs.slice(0, 10)"
                   :key="log.id"
-                  class="rounded-[1.35rem] border border-[var(--surface-line)] bg-white/86 p-4"
+                  class="info-list-card"
                 >
                   <p class="text-sm font-semibold text-[var(--surface-ink)]">
                     {{ log.room ? roomDisplayName(log.room) : 'Unbekannter Raum' }}
@@ -465,7 +478,7 @@ onMounted(() => {
 
             <div
               v-if="!analysis.priorityComments.length"
-              class="rounded-2xl border border-dashed border-[var(--surface-line)] px-4 py-5 text-sm text-[var(--surface-muted)]"
+              class="empty-state"
             >
               Keine Prioritätskommentare gefunden.
             </div>
@@ -477,7 +490,7 @@ onMounted(() => {
               <div
                 v-for="entry in analysis.priorityComments.slice(0, 12)"
                 :key="entry.log.id"
-                class="rounded-[1.35rem] border border-[var(--surface-line)] bg-white/86 p-4"
+                class="info-list-card"
               >
                 <div class="flex flex-wrap items-start justify-between gap-3">
                   <div>

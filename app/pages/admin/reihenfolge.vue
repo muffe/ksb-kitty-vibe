@@ -127,6 +127,7 @@ async function persistOrder(successText: string) {
   notice.value = { tone: 'info', text: 'Reihenfolge wird gespeichert ...' }
 
   const previousRooms = rooms.value.map(room => ({ ...room }))
+  const previousSortOrders = new Map(previousRooms.map(room => [room.id, room.sort_order]))
   const nextRooms = rooms.value.map((room, index) => ({
     ...room,
     sort_order: index + 1
@@ -134,25 +135,25 @@ async function persistOrder(successText: string) {
 
   rooms.value = nextRooms
 
-  for (const room of nextRooms) {
-    const previousRoom = previousRooms.find(entry => entry.id === room.id)
+  const changedRooms = nextRooms.filter(room => previousSortOrders.get(room.id) !== room.sort_order)
 
-    if (!previousRoom || previousRoom.sort_order === room.sort_order) {
-      continue
-    }
+  const results = await Promise.all(
+    changedRooms.map(room => (
+      supabase
+        .from('rooms')
+        .update({ sort_order: room.sort_order })
+        .eq('id', room.id)
+    ))
+  )
 
-    const { error } = await supabase
-      .from('rooms')
-      .update({ sort_order: room.sort_order })
-      .eq('id', room.id)
+  const failedUpdate = results.find(result => result.error)
 
-    if (error) {
-      rooms.value = previousRooms
-      saving.value = false
-      notice.value = { tone: 'error', text: error.message }
-      await refreshRooms()
-      return
-    }
+  if (failedUpdate?.error) {
+    rooms.value = previousRooms
+    saving.value = false
+    notice.value = { tone: 'error', text: failedUpdate.error.message }
+    await refreshRooms()
+    return
   }
 
   saving.value = false
@@ -183,7 +184,6 @@ async function setupSortable() {
     delay: 120,
     fallbackTolerance: 3,
     touchStartThreshold: 4,
-    onUpdate: handleSortCommit,
     onEnd: handleSortCommit
   })
 }
@@ -250,6 +250,8 @@ onBeforeUnmount(() => {
       v-if="notice"
       class="status-banner"
       :class="`status-banner--${notice.tone}`"
+      :role="notice.tone === 'error' ? 'alert' : 'status'"
+      :aria-live="notice.tone === 'error' ? 'assertive' : 'polite'"
     >
       <p class="text-sm font-semibold">
         {{ notice.text }}

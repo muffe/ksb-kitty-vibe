@@ -135,7 +135,7 @@ const defaultDaypart = computed(() => props.initialDaypart ?? inferredCurrentDay
       </div>
 
       <div class="grid gap-5 2xl:grid-cols-[minmax(0,1.25fr)_minmax(18rem,0.75fr)]">
-        <div class="rounded-[1.75rem] border border-[var(--surface-line)] bg-white/90 p-5 shadow-sm">
+        <div class="panel-shell panel-shell--solid panel-block-lg">
           <div class="mb-4 flex items-center justify-between gap-3">
             <div>
               <p class="section-kicker">
@@ -160,7 +160,7 @@ const defaultDaypart = computed(() => props.initialDaypart ?? inferredCurrentDay
           />
         </div>
 
-        <div class="rounded-[1.75rem] border border-[var(--surface-line)] bg-[var(--surface-panel)] p-5 shadow-sm">
+        <div class="panel-shell panel-block-lg">
           <div class="mb-4 flex items-center justify-between gap-3">
             <div>
               <p class="section-kicker">
@@ -175,7 +175,7 @@ const defaultDaypart = computed(() => props.initialDaypart ?? inferredCurrentDay
 
           <div
             v-if="!logs.length"
-            class="rounded-2xl border border-dashed border-[var(--surface-line)] px-4 py-4 text-sm text-[var(--surface-muted)]"
+            class="empty-state"
           >
             Für diesen Raum gibt es noch keine gespeicherten Einträge.
           </div>
@@ -187,7 +187,7 @@ const defaultDaypart = computed(() => props.initialDaypart ?? inferredCurrentDay
             <div
               v-for="log in logs"
               :key="log.id"
-              class="rounded-2xl border border-[var(--surface-line)] bg-white/85 p-4"
+              class="room-log-entry rounded-2xl border border-[var(--surface-line)] bg-white/85 p-4"
             >
               <div class="mb-2 flex items-center justify-between gap-3">
                 <div>

@@ -295,6 +295,8 @@ onMounted(() => {
       v-if="notice"
       class="status-banner"
       :class="`status-banner--${notice.tone}`"
+      :role="notice.tone === 'error' ? 'alert' : 'status'"
+      :aria-live="notice.tone === 'error' ? 'assertive' : 'polite'"
     >
       <div>
         <p class="text-sm font-semibold">

@@ -1,17 +1,19 @@
 <script setup lang="ts">
+import { daypartLabel, type Daypart } from '~/utils/cat-shelter'
+
 withDefaults(defineProps<{
   isAdmin?: boolean
+  preferredDaypart?: Daypart
   roomsCount?: number
-  morningCompletion?: string
+  completedCount?: number
   morningCount?: number
-  eveningCompletion?: string
   eveningCount?: number
 }>(), {
   isAdmin: false,
+  preferredDaypart: 'morning',
   roomsCount: 0,
-  morningCompletion: '0%',
+  completedCount: 0,
   morningCount: 0,
-  eveningCompletion: '0%',
   eveningCount: 0
 })
 
@@ -22,131 +24,113 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <UCard
-    class="surface-card"
-    :ui="{
-      root: 'relative overflow-hidden rounded-[1.6rem] lg:rounded-[2rem]',
-      body: 'hero-card-body p-5 sm:p-6 lg:p-7'
-    }"
-  >
-    <div class="space-y-5">
-      <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div class="min-w-0 space-y-2">
-          <p class="section-kicker">
-            Pflegeübersicht
-          </p>
-          <h1 class="hero-title">
-            Räume in Reihenfolge abarbeiten
-          </h1>
-          <p class="hero-copy">
-            Warnhinweise zuerst prüfen. Danach Fütterung und Beobachtungen direkt im jeweiligen Raum eintragen.
-          </p>
-        </div>
-
-        <div class="w-full md:max-w-[35rem] md:flex-none">
-          <div class="hint-grid">
-            <div class="hint-card">
-              <p class="hint-title">
-                Wichtig
-              </p>
-              <p class="hint-text">
-                Die Reihenfolge ist vorgegeben und soll eingehalten werden.
-              </p>
-            </div>
-
-            <div class="hint-card">
-              <p class="hint-title">
-                Dokumentation
-              </p>
-              <p class="hint-text">
-                Kommentar nur nutzen, wenn etwas auffällig oder erklärungsbedürftig war.
-              </p>
-            </div>
-          </div>
-        </div>
+  <section class="dashboard-hero space-y-5">
+    <div class="dashboard-hero__main">
+      <div class="min-w-0 space-y-3">
+        <p class="section-kicker">
+          Pflegeübersicht
+        </p>
+        <h1 class="hero-title">
+          Rundgang ohne Umwege
+        </h1>
+        <p class="hero-copy">
+          Raum öffnen, Beobachtung notieren, speichern. Alles andere ist nachgeordnet.
+        </p>
       </div>
 
-      <div
-        v-if="isAdmin"
-        class="rounded-[1.6rem] border border-[var(--surface-line)] bg-white/84 p-4 sm:p-5"
-      >
-        <div class="flex flex-col gap-4">
-          <div>
-            <h2 class="section-title text-xl">
-              Admin-Zugang
-            </h2>
-          </div>
-
-          <div class="grid gap-3 lg:grid-cols-3">
-            <div class="rounded-[1.2rem] border border-[var(--surface-line)] bg-white/88 px-4 py-4">
-              <p class="section-kicker">
-                Räume
-              </p>
-              <p class="mt-2 text-2xl font-semibold text-[var(--surface-ink)]">
-                {{ roomsCount }}
-              </p>
-            </div>
-
-            <div class="rounded-[1.2rem] border border-[var(--surface-line)] bg-white/88 px-4 py-4">
-              <p class="section-kicker">
-                Morgens
-              </p>
-              <p class="mt-2 text-2xl font-semibold text-[var(--surface-ink)]">
-                {{ morningCompletion }}
-              </p>
-              <p class="mt-1 text-sm text-[var(--surface-muted)]">
-                {{ morningCount }} von {{ roomsCount }} protokolliert
-              </p>
-            </div>
-
-            <div class="rounded-[1.2rem] border border-[var(--surface-line)] bg-white/88 px-4 py-4">
-              <p class="section-kicker">
-                Abends
-              </p>
-              <p class="mt-2 text-2xl font-semibold text-[var(--surface-ink)]">
-                {{ eveningCompletion }}
-              </p>
-              <p class="mt-1 text-sm text-[var(--surface-muted)]">
-                {{ eveningCount }} von {{ roomsCount }} protokolliert
-              </p>
-            </div>
-          </div>
-
-          <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <UButton
-              color="primary"
-              icon="i-lucide-plus"
-              label="Neuen Raum anlegen"
-              class="justify-center"
-              @click="emit('createRoom')"
-            />
-            <UButton
-              color="neutral"
-              variant="outline"
-              icon="i-lucide-chart-column"
-              label="Analyse"
-              class="justify-center"
-              to="/admin/analyse"
-            />
-            <UButton
-              color="neutral"
-              variant="subtle"
-              icon="i-lucide-arrow-up-down"
-              label="Reihenfolge bearbeiten"
-              class="justify-center"
-              to="/admin/reihenfolge"
-            />
-            <UButton
-              color="neutral"
-              variant="outline"
-              icon="i-lucide-log-out"
-              label="Abmelden"
-              class="justify-center"
-              @click="emit('signOut')"
-            />
-          </div>
+      <div class="dashboard-hero__status">
+        <div class="dashboard-hero__pill">
+          {{ daypartLabel(preferredDaypart) }}
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-[var(--surface-ink)]">
+            {{ completedCount }}/{{ roomsCount }} Räume dokumentiert
+          </p>
+          <p class="mt-1 text-sm leading-6 text-[var(--surface-muted)]">
+            Reihenfolge einhalten. Kommentare nur bei Auffälligkeiten oder Abweichungen.
+          </p>
         </div>
       </div>
     </div>
-  </UCard>
+
+    <div class="dashboard-hero__route">
+      <div class="dashboard-hero__route-step">
+        <span class="dashboard-hero__route-index">1</span>
+        <div>
+          <p class="text-sm font-semibold text-[var(--surface-ink)]">
+            Reihenfolge beachten
+          </p>
+          <p class="text-sm leading-6 text-[var(--surface-muted)]">
+            Der Startpunkt wird unten im Dashboard hervorgehoben.
+          </p>
+        </div>
+      </div>
+      <div class="dashboard-hero__route-step">
+        <span class="dashboard-hero__route-index">2</span>
+        <div>
+          <p class="text-sm font-semibold text-[var(--surface-ink)]">
+            Eintrag kurz halten
+          </p>
+          <p class="text-sm leading-6 text-[var(--surface-muted)]">
+            Nur fressen, Kot und echte Auffälligkeiten dokumentieren.
+          </p>
+        </div>
+      </div>
+      <div class="dashboard-hero__route-step">
+        <span class="dashboard-hero__route-index">3</span>
+        <div>
+          <p class="text-sm font-semibold text-[var(--surface-ink)]">
+            Direkt weiter
+          </p>
+          <p class="text-sm leading-6 text-[var(--surface-muted)]">
+            Nach dem Speichern sofort zum nächsten offenen Raum wechseln.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div
+      v-if="isAdmin"
+      class="dashboard-admin-strip"
+    >
+      <div class="space-y-1">
+        <p class="section-kicker">
+          Admin
+        </p>
+        <p class="text-sm leading-6 text-[var(--surface-muted)]">
+          {{ roomsCount }} Räume. Morgens {{ morningCount }} erledigt, abends {{ eveningCount }} erledigt.
+        </p>
+      </div>
+
+      <div class="flex flex-wrap gap-3">
+        <UButton
+          color="primary"
+          icon="i-lucide-plus"
+          label="Raum anlegen"
+          @click="emit('createRoom')"
+        />
+        <UButton
+          color="neutral"
+          variant="outline"
+          icon="i-lucide-chart-column"
+          label="Analyse"
+          to="/admin/analyse"
+        />
+        <UButton
+          color="neutral"
+          variant="subtle"
+          icon="i-lucide-arrow-up-down"
+          label="Reihenfolge"
+          to="/admin/reihenfolge"
+        />
+        <UButton
+          color="neutral"
+          variant="ghost"
+          icon="i-lucide-log-out"
+          label="Abmelden"
+          @click="emit('signOut')"
+        />
+      </div>
+    </div>
+  </section>
 </template>

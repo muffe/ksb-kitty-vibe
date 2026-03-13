@@ -139,7 +139,7 @@ function submit(state: RoomLogFormState) {
       >
         <div
           v-if="editing"
-          class="rounded-[1.75rem] border border-[var(--surface-line)] bg-white/92 p-5 shadow-sm"
+          class="panel-shell panel-shell--solid panel-block-lg"
         >
           <RoomLogForm
             :submitting="submitting"
@@ -176,7 +176,7 @@ function submit(state: RoomLogFormState) {
           </div>
 
           <div class="grid gap-4 md:grid-cols-2">
-            <div class="rounded-[1.4rem] border border-[var(--surface-line)] bg-white/88 p-4">
+            <div class="info-list-card">
               <p class="section-kicker">
                 Protokoll
               </p>
@@ -208,7 +208,7 @@ function submit(state: RoomLogFormState) {
               </dl>
             </div>
 
-            <div class="rounded-[1.4rem] border border-[var(--surface-line)] bg-white/88 p-4">
+            <div class="info-list-card">
               <p class="section-kicker">
                 Kot
               </p>
@@ -240,7 +240,7 @@ function submit(state: RoomLogFormState) {
             </div>
           </div>
 
-          <div class="rounded-[1.4rem] border border-[var(--surface-line)] bg-white/88 p-4">
+          <div class="info-list-card">
             <p class="section-kicker">
               Kommentar
             </p>

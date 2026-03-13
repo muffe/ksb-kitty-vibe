@@ -31,8 +31,11 @@ const emit = defineEmits<{
   'submit-log': [state: RoomLogFormState]
 }>()
 
+const formElement = ref<HTMLFormElement | null>(null)
 const state = reactive(createRoomLogFormState(props.initialDaypart))
 const localError = ref('')
+const employeeInputId = useId()
+const employeeErrorId = useId()
 
 function createInitialState() {
   return {
@@ -53,6 +56,9 @@ watch(
 function submit() {
   if (!state.employee_name.trim()) {
     localError.value = 'Bitte den Namen der mitarbeitenden Person eintragen.'
+    nextTick(() => {
+      formElement.value?.querySelector<HTMLInputElement>(`#${employeeInputId}`)?.focus()
+    })
     return
   }
 
@@ -62,15 +68,22 @@ function submit() {
 </script>
 
 <template>
-  <div>
+  <form
+    ref="formElement"
+    novalidate
+    @submit.prevent="submit"
+  >
     <div
       v-if="localError"
+      :id="employeeErrorId"
       class="mb-4 rounded-2xl border border-red-300/80 bg-red-50 px-4 py-3 text-sm text-red-700"
+      role="alert"
+      aria-live="assertive"
     >
       {{ localError }}
     </div>
 
-    <div class="grid gap-4 md:grid-cols-2">
+    <div class="grid gap-4 sm:grid-cols-2">
       <label class="field-block">
         <span class="field-label">Tageszeit</span>
         <USelect
@@ -85,14 +98,20 @@ function submit() {
       <label class="field-block">
         <span class="field-label">Mitarbeiter</span>
         <UInput
+          :id="employeeInputId"
           v-model="state.employee_name"
+          autocomplete="name"
+          maxlength="80"
           placeholder="Name eintragen"
+          required
+          :aria-describedby="localError ? employeeErrorId : undefined"
+          :aria-invalid="localError ? 'true' : 'false'"
           :ui="readableInputUi"
         />
       </label>
     </div>
 
-    <div class="mt-4 grid gap-3 md:grid-cols-2">
+    <div class="mt-4 grid gap-3 sm:grid-cols-2">
       <UCheckbox
         v-model="state.ate_all_food"
         variant="card"
@@ -110,7 +129,7 @@ function submit() {
 
     <div
       v-if="!state.no_stool_found"
-      class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
+      class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
     >
       <label
         v-for="field in stoolFields"
@@ -132,6 +151,7 @@ function submit() {
       <UTextarea
         v-model="state.comment"
         :rows="3"
+        maxlength="600"
         placeholder="Auffälligkeiten, Medikamente, Rückfragen oder Besonderheiten"
         :ui="readableTextareaUi"
       />
@@ -151,8 +171,8 @@ function submit() {
         icon="i-lucide-check-check"
         :loading="submitting"
         :label="submitLabel"
-        @click="submit"
+        type="submit"
       />
     </div>
-  </div>
+  </form>
 </template>
